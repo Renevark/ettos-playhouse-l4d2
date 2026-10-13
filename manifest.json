@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "name": "Etto's Playhouse",
+  "updated": "2026-10-12",
+  "latestScript": 1,
+  "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
+  "loadFirst": "3818862657",
+  "required": [
+    { "id": "3818862657", "label": "Survivor Set Patch v2 (friends-only; must load first)" },
+    { "id": "142086881",  "label": "ZMB-13" },
+    { "id": "143565981",  "label": "We Don't Go To Ravenholm" },
+    { "id": "533677587",  "label": "Resident Evil 1" },
+    { "id": "575658578",  "label": "Dark Wood (Extended) 1/5" },
+    { "id": "575665201",  "label": "Dark Wood (Extended) 2/5" },
+    { "id": "575670582",  "label": "Dark Wood (Extended) 3/5" },
+    { "id": "575676711",  "label": "Dark Wood (Extended) 4/5" },
+    { "id": "947357881",  "label": "Dark Wood (Extended) 5/5" },
+    { "id": "624772819",  "label": "Resident Evil 3" },
+    { "id": "762591677",  "label": "Resident Evil 2 - Side A" },
+    { "id": "762715214",  "label": "Resident Evil 2 - Side B" },
+    { "id": "2193880197", "label": "L4D1 Common Infected Overhaul (hitbox parity)" },
+    { "id": "2257961887", "label": "Time to Die" },
+    { "id": "2274787444", "label": "Buried Deep 1/2" },
+    { "id": "2621559814", "label": "Buried Deep 2/2" },
+    { "id": "2325347179", "label": "Haunted Forest" },
+    { "id": "2443777886", "label": "The Seal of Asrahmat" },
+    { "id": "2498978864", "label": "Yama (Finale Fixed)" },
+    { "id": "2574058534", "label": "No Echo Remastered" },
+    { "id": "2825225421", "label": "The Evil Within" },
+    { "id": "2927231410", "label": "Silent Hill 1 (1/4)" },
+    { "id": "2927233120", "label": "Silent Hill 1 (2/4)" },
+    { "id": "2927234358", "label": "Silent Hill 1 (3/4)" },
+    { "id": "2927237718", "label": "Silent Hill 1 (4/4)" },
+    { "id": "3135451698", "label": "Cold Front 1/3" },
+    { "id": "3135458590", "label": "Cold Front 2/3" },
+    { "id": "3135460406", "label": "Cold Front 3/3" },
+    { "id": "3174717317", "label": "RNG Braindead's L4D1 SI (server picks SI models)" },
+    { "id": "3206745036", "label": "Freezing Point: Director's Cut" },
+    { "id": "3363605876", "label": "Pier Pressure" }
+  ],
+  "recommended": [
+    { "id": "3245988041", "label": "Rochelle: Remastered (server uses it for hitboxes)" },
+    { "id": "3391430054", "label": "Louis: Remastered (server uses it for hitboxes)" },
+    { "id": "3264007281", "label": "Shell Impact Sounds (cosmetic)" }
+  ],
+  "retired": [
+    { "id": "3684304978", "label": "Survivor Set Patch v1 (its Yama file breaks Yama loading)" },
+    { "id": "3167201697", "label": "Survivor Set 2 for L4D1 campaigns (now inside v2)" },
+    { "id": "767999000",  "label": "Yama part 1 (now in Yama (Finale Fixed))" },
+    { "id": "170360252",  "label": "Yama part 2 (now in Yama (Finale Fixed))" },
+    { "id": "169801737",  "label": "Yama part 3 (now in Yama (Finale Fixed))" },
+    { "id": "1127584577", "label": "Yama Finale Fix (now in Yama (Finale Fixed))" }
+  ],
+  "knownBad": [
+    { "id": "2121557118", "label": "xdReanimsBase", "reason": "crashes at map load when the server switches to the L4D1 cast" },
+    { "id": "3161215418", "label": "[xdr] rng shove", "reason": "xdReanims add-on, same crash family" }
+  ],
+  "notes": [
+    "ekgHUD users: ask Etto for the ekgHUD compatibility patch so the server's survivor table shows up."
+  ]
+}
