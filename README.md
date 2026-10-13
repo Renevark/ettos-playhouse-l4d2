@@ -7,7 +7,9 @@ survivor-set fix, and none of the add-ons known to crash on it.
 
 1. Start Steam. **Close Left 4 Dead 2.**
 2. Double-click **`Sync.cmd`**. Review the list it prints, then answer `y`.
-3. Launch Left 4 Dead 2 once (it cleans up removed add-ons), quit, then launch again and play.
+3. If it says add-ons still need downloading: launch Left 4 Dead 2, **wait at the main menu until the add-on downloads finish**,
+   quit, and run `Sync.cmd` once more. Left 4 Dead 2 downloads Workshop items itself when it starts, and the second run fixes the load order.
+4. Launch the game and play.
 
 Run it again any time. It always reads the current list from `manifest.json` in this repo, so you never need a new copy of the script
 unless it tells you one is available.
@@ -31,7 +33,7 @@ unless it tells you one is available.
 | `Restore.cmd` | Undoes the most recent sync: resubscribes what it removed and restores your `addonlist.txt` |
 
 Every run that changes something first saves a snapshot to `Documents\EttosPlayhouse\backups\`. `Restore.cmd -Backup <folder>`
-restores an older one. Anything that was removed is downloaded again by Steam the next time you launch the game.
+restores an older one. Anything that was removed is downloaded again the next time you launch the game.
 
 ## How it works
 

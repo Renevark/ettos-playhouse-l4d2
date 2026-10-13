@@ -228,26 +228,6 @@ function Apply-Changes([uint64[]]$add, [uint64[]]$remove) {
     foreach ($id in $pending) { Say "  not confirmed by Steam: $id" 'Yellow' }
 }
 
-function Wait-Downloads([uint64[]]$ids) {
-    if (-not $ids) { return }
-    Say "`nWaiting for Steam to download $($ids.Count) item(s) (large campaigns can take a while)..."
-    $deadline = (Get-Date).AddMinutes(20); $last = @{}
-    while ((Get-Date) -lt $deadline) {
-        [EttoSteam]::SteamAPI_RunCallbacks()
-        $left = @()
-        foreach ($id in $ids) {
-            $f = Join-Path $addonsDir "$id.vpk"
-            $sz = if (Test-Path $f) { (Get-Item $f).Length } else { -1 }
-            if ($sz -le 0 -or $last["$id"] -ne $sz) { $left += $id }
-            $last["$id"] = $sz
-        }
-        if ($left.Count -eq 0) { Say '  all downloads present.' 'Green'; return }
-        Write-Host ("`r  still downloading: {0}      " -f ($left -join ', ')) -NoNewline
-        Start-Sleep -Seconds 3
-    }
-    Say "`n  Some downloads did not finish in time. That's OK: launch L4D2 once, let Steam finish, then run this again." 'Yellow'
-}
-
 try {
     $before = [EttoSteam]::Subscribed()
     # ---------------------------------------------------------------- restore
@@ -323,10 +303,19 @@ try {
     Say "`nSnapshot saved: $snapDir  (Restore.cmd undoes this run)"
 
     if ($add -or $remove) { Apply-Changes $add $remove }
-    Wait-Downloads $add
     Update-AddonList $first $req $remove
     Say "`naddonlist.txt updated: required items enabled$(if ($first) {", $first loads first"})." 'Green'
-    Say "`nDone. Launch Left 4 Dead 2 once (it cleans up removed items), quit, then launch again and play." 'Cyan'
+    # L4D2 (legacy Workshop) downloads new items itself when it starts, and may re-order addonlist.txt.
+    $notDownloaded = @($req | Where-Object { -not (Test-Path (Join-Path $addonsDir "$_.vpk")) })
+    if ($notDownloaded.Count -gt 0) {
+        Say "`n$($notDownloaded.Count) required add-on(s) are not downloaded yet. Left 4 Dead 2 downloads them itself:" 'Yellow'
+        Say '  1. Launch Left 4 Dead 2 and stay at the main menu until the add-on downloads finish.' 'Yellow'
+        Say '  2. Quit the game.' 'Yellow'
+        Say '  3. Run Sync.cmd again (it fixes the load order now that everything is present).' 'Yellow'
+        Say '  4. Launch and play.' 'Yellow'
+    } else {
+        Say "`nDone. Launch Left 4 Dead 2 once (it removes unsubscribed items), quit, then launch again and play." 'Cyan'
+    }
 }
 finally {
     [EttoSteam]::SteamAPI_Shutdown()
