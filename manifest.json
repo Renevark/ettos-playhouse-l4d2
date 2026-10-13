@@ -1,61 +1,518 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-10-12",
-  "latestScript": 1,
+  "updated": "2026-10-13",
+  "latestScript": 2,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
   "required": [
-    { "id": "3818862657", "label": "Survivor Set Patch v2 (friends-only; must load first)" },
-    { "id": "142086881",  "label": "ZMB-13" },
-    { "id": "143565981",  "label": "We Don't Go To Ravenholm" },
-    { "id": "533677587",  "label": "Resident Evil 1" },
-    { "id": "575658578",  "label": "Dark Wood (Extended) 1/5" },
-    { "id": "575665201",  "label": "Dark Wood (Extended) 2/5" },
-    { "id": "575670582",  "label": "Dark Wood (Extended) 3/5" },
-    { "id": "575676711",  "label": "Dark Wood (Extended) 4/5" },
-    { "id": "947357881",  "label": "Dark Wood (Extended) 5/5" },
-    { "id": "624772819",  "label": "Resident Evil 3" },
-    { "id": "762591677",  "label": "Resident Evil 2 - Side A" },
-    { "id": "762715214",  "label": "Resident Evil 2 - Side B" },
-    { "id": "2193880197", "label": "L4D1 Common Infected Overhaul (hitbox parity)" },
-    { "id": "2257961887", "label": "Time to Die" },
-    { "id": "2274787444", "label": "Buried Deep 1/2" },
-    { "id": "2621559814", "label": "Buried Deep 2/2" },
-    { "id": "2325347179", "label": "Haunted Forest" },
-    { "id": "2443777886", "label": "The Seal of Asrahmat" },
-    { "id": "2498978864", "label": "Yama (Finale Fixed)" },
-    { "id": "2574058534", "label": "No Echo Remastered" },
-    { "id": "2825225421", "label": "The Evil Within" },
-    { "id": "2927231410", "label": "Silent Hill 1 (1/4)" },
-    { "id": "2927233120", "label": "Silent Hill 1 (2/4)" },
-    { "id": "2927234358", "label": "Silent Hill 1 (3/4)" },
-    { "id": "2927237718", "label": "Silent Hill 1 (4/4)" },
-    { "id": "3135451698", "label": "Cold Front 1/3" },
-    { "id": "3135458590", "label": "Cold Front 2/3" },
-    { "id": "3135460406", "label": "Cold Front 3/3" },
-    { "id": "3174717317", "label": "RNG Braindead's L4D1 SI (server picks SI models)" },
-    { "id": "3206745036", "label": "Freezing Point: Director's Cut" },
-    { "id": "3363605876", "label": "Pier Pressure" }
+    {
+      "id": "3818862657",
+      "label": "Survivor Set Patch v2 (friends-only; must load first)"
+    },
+    {
+      "id": "142086881",
+      "label": "ZMB-13"
+    },
+    {
+      "id": "143565981",
+      "label": "We Don't Go To Ravenholm"
+    },
+    {
+      "id": "533677587",
+      "label": "Resident Evil 1"
+    },
+    {
+      "id": "575658578",
+      "label": "Dark Wood (Extended) 1/5"
+    },
+    {
+      "id": "575665201",
+      "label": "Dark Wood (Extended) 2/5"
+    },
+    {
+      "id": "575670582",
+      "label": "Dark Wood (Extended) 3/5"
+    },
+    {
+      "id": "575676711",
+      "label": "Dark Wood (Extended) 4/5"
+    },
+    {
+      "id": "947357881",
+      "label": "Dark Wood (Extended) 5/5"
+    },
+    {
+      "id": "624772819",
+      "label": "Resident Evil 3"
+    },
+    {
+      "id": "762591677",
+      "label": "Resident Evil 2 - Side A"
+    },
+    {
+      "id": "762715214",
+      "label": "Resident Evil 2 - Side B"
+    },
+    {
+      "id": "2193880197",
+      "label": "L4D1 Common Infected Overhaul (hitbox parity)"
+    },
+    {
+      "id": "2257961887",
+      "label": "Time to Die"
+    },
+    {
+      "id": "2274787444",
+      "label": "Buried Deep 1/2"
+    },
+    {
+      "id": "2621559814",
+      "label": "Buried Deep 2/2"
+    },
+    {
+      "id": "2325347179",
+      "label": "Haunted Forest"
+    },
+    {
+      "id": "2443777886",
+      "label": "The Seal of Asrahmat"
+    },
+    {
+      "id": "2498978864",
+      "label": "Yama (Finale Fixed)"
+    },
+    {
+      "id": "2574058534",
+      "label": "No Echo Remastered"
+    },
+    {
+      "id": "2825225421",
+      "label": "The Evil Within"
+    },
+    {
+      "id": "2927231410",
+      "label": "Silent Hill 1 (1/4)"
+    },
+    {
+      "id": "2927233120",
+      "label": "Silent Hill 1 (2/4)"
+    },
+    {
+      "id": "2927234358",
+      "label": "Silent Hill 1 (3/4)"
+    },
+    {
+      "id": "2927237718",
+      "label": "Silent Hill 1 (4/4)"
+    },
+    {
+      "id": "3135451698",
+      "label": "Cold Front 1/3"
+    },
+    {
+      "id": "3135458590",
+      "label": "Cold Front 2/3"
+    },
+    {
+      "id": "3135460406",
+      "label": "Cold Front 3/3"
+    },
+    {
+      "id": "3174717317",
+      "label": "RNG Braindead's L4D1 SI (server picks SI models)"
+    },
+    {
+      "id": "3206745036",
+      "label": "Freezing Point: Director's Cut"
+    },
+    {
+      "id": "3363605876",
+      "label": "Pier Pressure"
+    }
   ],
   "recommended": [
-    { "id": "3245988041", "label": "Rochelle: Remastered (server uses it for hitboxes)" },
-    { "id": "3391430054", "label": "Louis: Remastered (server uses it for hitboxes)" },
-    { "id": "3264007281", "label": "Shell Impact Sounds (cosmetic)" }
+    {
+      "id": "3245988041",
+      "label": "Rochelle: Remastered (server uses it for hitboxes)"
+    },
+    {
+      "id": "3391430054",
+      "label": "Louis: Remastered (server uses it for hitboxes)"
+    },
+    {
+      "id": "3264007281",
+      "label": "Shell Impact Sounds (cosmetic)"
+    }
   ],
   "retired": [
-    { "id": "3684304978", "label": "Survivor Set Patch v1 (its Yama file breaks Yama loading)" },
-    { "id": "3167201697", "label": "Survivor Set 2 for L4D1 campaigns (now inside v2)" },
-    { "id": "767999000",  "label": "Yama part 1 (now in Yama (Finale Fixed))" },
-    { "id": "170360252",  "label": "Yama part 2 (now in Yama (Finale Fixed))" },
-    { "id": "169801737",  "label": "Yama part 3 (now in Yama (Finale Fixed))" },
-    { "id": "1127584577", "label": "Yama Finale Fix (now in Yama (Finale Fixed))" }
+    {
+      "id": "3684304978",
+      "label": "Survivor Set Patch v1 (its Yama file breaks Yama loading)"
+    },
+    {
+      "id": "3167201697",
+      "label": "Survivor Set 2 for L4D1 campaigns (now inside v2)"
+    },
+    {
+      "id": "767999000",
+      "label": "Yama part 1 (now in Yama (Finale Fixed))"
+    },
+    {
+      "id": "170360252",
+      "label": "Yama part 2 (now in Yama (Finale Fixed))"
+    },
+    {
+      "id": "169801737",
+      "label": "Yama part 3 (now in Yama (Finale Fixed))"
+    },
+    {
+      "id": "1127584577",
+      "label": "Yama Finale Fix (now in Yama (Finale Fixed))"
+    }
   ],
   "knownBad": [
-    { "id": "2121557118", "label": "xdReanimsBase", "reason": "crashes at map load when the server switches to the L4D1 cast" },
-    { "id": "3161215418", "label": "[xdr] rng shove", "reason": "xdReanims add-on, same crash family" }
+    {
+      "id": "2121557118",
+      "label": "xdReanimsBase",
+      "reason": "crashes at map load when the server switches to the L4D1 cast"
+    },
+    {
+      "id": "3161215418",
+      "label": "[xdr] rng shove",
+      "reason": "xdReanims add-on, same crash family"
+    }
   ],
   "notes": [
     "ekgHUD users: ask Etto for the ekgHUD compatibility patch so the server's survivor table shows up."
+  ],
+  "parity": [
+    {
+      "id": "1649731007",
+      "label": "Daewoo K2 (Desert Rifle)",
+      "mb": 34.0
+    },
+    {
+      "id": "2329520936",
+      "label": "H&K MP5A3 RAS Suppressed with Aimpoint (CS:S MP5)",
+      "mb": 34.8
+    },
+    {
+      "id": "2962574542",
+      "label": "RE4 Remake Springfield M1903A4 (CS:S Scout)",
+      "mb": 65.1
+    },
+    {
+      "id": "1937349307",
+      "label": "IZHMASH AKS-74 (AK47)",
+      "mb": 45.5
+    },
+    {
+      "id": "2515783158",
+      "label": "RE8 Village Degtyaryov PKM (M60)",
+      "mb": 71.2
+    },
+    {
+      "id": "2957928641",
+      "label": "RE4 Remake Steyr TMP (Suppressed SMG)",
+      "mb": 28.2
+    },
+    {
+      "id": "3471529345",
+      "label": "SIG Sauer SIG516 (M16)",
+      "mb": 46.8
+    },
+    {
+      "id": "1732550332",
+      "label": "Insurgency H&K UMP45 (UZI SMG)",
+      "mb": 18.6
+    },
+    {
+      "id": "645502899",
+      "label": "Haus's Weapon Sounds",
+      "mb": 48.1
+    },
+    {
+      "id": "1229705812",
+      "label": "M79 Grenade Launcher",
+      "mb": 4.6
+    },
+    {
+      "id": "146726644",
+      "label": "Magnum - s&w 29 revolver (chrome)",
+      "mb": 34.4
+    },
+    {
+      "id": "135233886",
+      "label": "M16 sniper edition",
+      "mb": 60.0
+    },
+    {
+      "id": "129118764",
+      "label": "Beretta 92FS",
+      "mb": 12.3
+    },
+    {
+      "id": "1229742534",
+      "label": "AWM",
+      "mb": 37.4
+    },
+    {
+      "id": "131131462",
+      "label": "Remington 870 AE",
+      "mb": 29.2
+    },
+    {
+      "id": "131769458",
+      "label": "M14 (Hunting Rifle)",
+      "mb": 9.2
+    },
+    {
+      "id": "145079100",
+      "label": "Auto Shotgun Reborn",
+      "mb": 11.8
+    },
+    {
+      "id": "140560102",
+      "label": "FN SCAR-H (SG552)",
+      "mb": 50.6
+    },
+    {
+      "id": "131130095",
+      "label": "Benelli M3",
+      "mb": 44.0
+    },
+    {
+      "id": "1228720600",
+      "label": "SPAS-12",
+      "mb": 4.0
+    },
+    {
+      "id": "2684105741",
+      "label": "Clean and Reflective Water",
+      "mb": 0.0
+    },
+    {
+      "id": "3502479164",
+      "label": "Remastered Wounds",
+      "mb": 0.5
+    },
+    {
+      "id": "3681250721",
+      "label": "Enhanced Item Textures",
+      "mb": 12.5
+    },
+    {
+      "id": "3347953154",
+      "label": "Default Melee Weapons HD Remastered v1.1",
+      "mb": 55.8
+    },
+    {
+      "id": "3756554069",
+      "label": "Survivor Footstep Sounds - Geared Walk",
+      "mb": 9.2
+    },
+    {
+      "id": "3178393845",
+      "label": "Poster Inspired Color Correction Pack",
+      "mb": 4.1
+    },
+    {
+      "id": "3233665119",
+      "label": "No Camera Shake When Bots Shoot You [VScript]",
+      "mb": 0.3
+    },
+    {
+      "id": "2562972464",
+      "label": "Actual Flashlight",
+      "mb": 1.3
+    },
+    {
+      "id": "3367773306",
+      "label": "Mildly More Consistent Bill Icon",
+      "mb": 0.0
+    },
+    {
+      "id": "3488886481",
+      "label": "Bill: Remastered (War-Dog Edition)",
+      "mb": 62.1
+    },
+    {
+      "id": "3390255158",
+      "label": "Survivors Don't Like Lights In Their Eyes",
+      "mb": 0.0
+    },
+    {
+      "id": "1541610516",
+      "label": "Complete Population",
+      "mb": 0.1
+    },
+    {
+      "id": "3323735325",
+      "label": "Collection of Realistic Skyboxes",
+      "mb": 276.2
+    },
+    {
+      "id": "139883646",
+      "label": "Cinematic Lighting Effects",
+      "mb": 2.8
+    },
+    {
+      "id": "3161277824",
+      "label": "Bigger Addon Browser / Menu",
+      "mb": 0.0
+    },
+    {
+      "id": "2401339639",
+      "label": "[Alternate] Improved Blood Textures",
+      "mb": 56.0
+    },
+    {
+      "id": "3382115653",
+      "label": "Diet Nick: Remastered",
+      "mb": 12.1
+    },
+    {
+      "id": "3293828503",
+      "label": "Coach: Remastered (Tactical vest without helmet)",
+      "mb": 23.6
+    },
+    {
+      "id": "3245988041",
+      "label": "Rochelle: Remastered",
+      "mb": 21.2
+    },
+    {
+      "id": "3205379364",
+      "label": "Ellis: Remastered V2",
+      "mb": 32.2
+    },
+    {
+      "id": "3357239570",
+      "label": "(ALT) Zoey: Remastered",
+      "mb": 17.3
+    },
+    {
+      "id": "3391430054",
+      "label": "Louis: Remastered",
+      "mb": 21.6
+    },
+    {
+      "id": "3391431043",
+      "label": "Francis: Remastered",
+      "mb": 35.3
+    },
+    {
+      "id": "2484822104",
+      "label": "RNG L4D1 SI Model Vscript",
+      "mb": 0.0
+    },
+    {
+      "id": "3264007281",
+      "label": "Shell Impact Sounds",
+      "mb": 0.7
+    },
+    {
+      "id": "3130909629",
+      "label": "Extended Melee Skin Pack",
+      "mb": 71.0
+    },
+    {
+      "id": "3212592872",
+      "label": "Extended Items Skin Pack",
+      "mb": 45.8
+    },
+    {
+      "id": "1290500976",
+      "label": "GoreMod V2",
+      "mb": 0.2
+    },
+    {
+      "id": "708613224",
+      "label": "DOOM (metal) theme for TANK",
+      "mb": 65.1
+    }
+  ],
+  "loadOrder": [
+    "3818862657",
+    "1649731007",
+    "2329520936",
+    "2962574542",
+    "1937349307",
+    "2515783158",
+    "2957928641",
+    "3471529345",
+    "1732550332",
+    "645502899",
+    "1229705812",
+    "146726644",
+    "135233886",
+    "129118764",
+    "1229742534",
+    "131131462",
+    "131769458",
+    "145079100",
+    "140560102",
+    "131130095",
+    "1228720600",
+    "2684105741",
+    "3502479164",
+    "3681250721",
+    "3347953154",
+    "3756554069",
+    "3178393845",
+    "2498978864",
+    "3233665119",
+    "2274787444",
+    "2621559814",
+    "142086881",
+    "2257961887",
+    "2443777886",
+    "762715214",
+    "762591677",
+    "2574058534",
+    "575658578",
+    "575665201",
+    "575670582",
+    "575676711",
+    "947357881",
+    "3363605876",
+    "2325347179",
+    "624772819",
+    "143565981",
+    "533677587",
+    "2562972464",
+    "3367773306",
+    "3488886481",
+    "2927231410",
+    "2927233120",
+    "2927234358",
+    "2927237718",
+    "3206745036",
+    "2825225421",
+    "3390255158",
+    "1541610516",
+    "2193880197",
+    "3323735325",
+    "139883646",
+    "3161277824",
+    "2401339639",
+    "3135451698",
+    "3135458590",
+    "3135460406",
+    "3382115653",
+    "3293828503",
+    "3245988041",
+    "3205379364",
+    "3357239570",
+    "3391430054",
+    "3391431043",
+    "2484822104",
+    "3174717317",
+    "3264007281",
+    "3130909629",
+    "3212592872",
+    "1290500976",
+    "708613224"
   ]
 }

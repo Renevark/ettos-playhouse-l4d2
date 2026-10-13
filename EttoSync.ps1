@@ -5,7 +5,10 @@
   Modes
     (default)  Standard: subscribe required items, unsubscribe retired / known-bad items, put the load-first
                item at the top of addonlist.txt, enable required items. Nothing else is touched.
-    -Strict    Make subscriptions match the manifest exactly (required + recommended). Snapshot first.
+    -Parity    Also subscribe Etto's full client setup (the manifest's optional "parity" list) and copy its
+               load order, so your game looks and sounds like Etto's. Combine with -Strict for an exact mirror.
+    -Strict    Make subscriptions match the manifest exactly (required + recommended, + parity with -Parity).
+               Snapshot first.
     -Restore   Undo a previous run from its snapshot (latest by default, or -Backup <folder>).
     -DryRun    Show what would change, change nothing.
     -Yes       Do not ask for confirmation.
@@ -16,6 +19,7 @@
 #>
 param(
     [switch]$Strict,
+    [switch]$Parity,
     [switch]$Restore,
     [switch]$DryRun,
     [switch]$Yes,
@@ -24,7 +28,7 @@ param(
     [string]$ManifestFile
 )
 
-$ScriptVersion = 1
+$ScriptVersion = 2
 $ErrorActionPreference = 'Stop'
 
 # ---- steam_api.dll in L4D2 is 32-bit: make sure we run in 32-bit PowerShell ----------------------------
@@ -162,18 +166,19 @@ function Get-Manifest {
     }
     try { $m = $raw | ConvertFrom-Json } catch { Fail 'The manifest is not valid JSON.' }
     if ($m.schema -ne 1) { Fail "Unsupported manifest schema '$($m.schema)'. Download the latest sync script." }
-    foreach ($sec in 'required', 'recommended', 'retired', 'knownBad') {
+    foreach ($sec in 'required', 'recommended', 'parity', 'retired', 'knownBad') {
         foreach ($it in @($m.$sec)) {
             if ($null -eq $it) { continue }
             if ("$($it.id)" -notmatch '^\d{6,12}$') { Fail "Manifest '$sec' has an invalid Workshop id '$($it.id)'." }
         }
     }
     if ($m.loadFirst -and "$($m.loadFirst)" -notmatch '^\d{6,12}$') { Fail 'Manifest loadFirst is not a Workshop id.' }
+    foreach ($o in @($m.loadOrder)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadOrder has an invalid Workshop id '$o'." } }
     return $m
 }
 function Ids($section) { @($section | Where-Object { $_ } | ForEach-Object { [uint64]"$($_.id)" }) }
 function Label($m, [uint64]$id) {
-    foreach ($sec in 'required', 'recommended', 'retired', 'knownBad') {
+    foreach ($sec in 'required', 'recommended', 'parity', 'retired', 'knownBad') {
         foreach ($it in @($m.$sec)) { if ($it -and [uint64]"$($it.id)" -eq $id) { return $it.label } }
     }
     $f = Join-Path $addonsDir "$id.vpk"
@@ -182,6 +187,14 @@ function Label($m, [uint64]$id) {
 }
 
 # ---- addonlist.txt editing -----------------------------------------------------------------------------
+# L4D2 rewrites addonlist.txt at every launch and ORDERS it by Steam subscription time (newest subscription on
+# top = highest priority). It keeps our on/off flags but not our ordering, so this only enables/drops entries;
+# priority is set by subscription order (see Set-SubscriptionOrder).
+function Get-GameOrder {
+    if (-not (Test-Path $addonList)) { return @() }
+    $t = [IO.File]::ReadAllText($addonList)
+    @([regex]::Matches($t, '"workshop[\\/](\d+)\.vpk"\s*"1"') | ForEach-Object { [uint64]$_.Groups[1].Value })
+}
 function Update-AddonList([uint64]$first, [uint64[]]$enable, [uint64[]]$drop) {
     if (-not (Test-Path $addonList)) { Say '  addonlist.txt not found yet - L4D2 creates it on first launch; run this again afterwards.' 'Yellow'; return }
     $text = [IO.File]::ReadAllText($addonList)
@@ -228,6 +241,25 @@ function Apply-Changes([uint64[]]$add, [uint64[]]$remove) {
     foreach ($id in $pending) { Say "  not confirmed by Steam: $id" 'Yellow' }
 }
 
+function Wait-Sub([uint64]$id, [bool]$want) {
+    $deadline = (Get-Date).AddSeconds(15)
+    do { [EttoSteam]::SteamAPI_RunCallbacks(); Start-Sleep -Milliseconds 200 } while ((([EttoSteam]::Subscribed()) -contains $id) -ne $want -and (Get-Date) -lt $deadline)
+}
+# Subscribe (or re-subscribe) items one at a time, oldest-priority first, so the LAST id ends up on top of
+# L4D2's add-on list after the next launch. Items already subscribed are cycled (unsubscribe + subscribe);
+# nothing is deleted - the game keeps the downloaded file. 1.2 s spacing because Steam's timestamps are per second.
+function Set-SubscriptionOrder([uint64[]]$bottomToTop) {
+    $i = 0
+    foreach ($id in $bottomToTop) {
+        $i++
+        Write-Host ("`r  ordering {0}/{1}: {2}      " -f $i, $bottomToTop.Count, $id) -NoNewline
+        if (([EttoSteam]::Subscribed()) -contains $id) { [void][EttoSteam]::SteamAPI_ISteamUGC_UnsubscribeItem([EttoSteam]::Ugc, $id); Wait-Sub $id $false }
+        [void][EttoSteam]::SteamAPI_ISteamUGC_SubscribeItem([EttoSteam]::Ugc, $id); Wait-Sub $id $true
+        Start-Sleep -Milliseconds 1200
+    }
+    if ($bottomToTop) { Write-Host '' }
+}
+
 try {
     $before = [EttoSteam]::Subscribed()
     # ---------------------------------------------------------------- restore
@@ -253,23 +285,47 @@ try {
     if ($m.latestScript -and [int]$m.latestScript -gt $ScriptVersion) { Say "A newer sync script (v$($m.latestScript)) is available: $($m.scriptUrl)" 'Yellow' }
     foreach ($n in @($m.notes)) { if ($n) { Say "Note: $n" 'DarkCyan' } }
 
-    $req = Ids $m.required; $rec = Ids $m.recommended
+    $req = Ids $m.required; $rec = Ids $m.recommended; $par = Ids $m.parity
+    $order = if ($Parity) { @($m.loadOrder | Where-Object { $_ } | ForEach-Object { [uint64]"$_" }) } else { @() }
+    $want = if ($Parity) { @($req) + @($par) } else { @($req) }
     $first = if ($m.loadFirst) { [uint64]"$($m.loadFirst)" } else { [uint64]0 }
     $removeSet = @(Ids $m.retired) + @(Ids $m.knownBad)
-    if ($Strict) { $removeSet += @($before | Where-Object { $req -notcontains $_ -and $rec -notcontains $_ }) }
+    if ($Strict) { $removeSet += @($before | Where-Object { $want -notcontains $_ -and $rec -notcontains $_ }) }
     $remove = @($before | Where-Object { $removeSet -contains $_ } | Select-Object -Unique)
-    $add = @($req | Where-Object { $before -notcontains $_ -and $_ -ne $first })
+    $add = @($want | Where-Object { $before -notcontains $_ -and $_ -ne $first } | Select-Object -Unique)
     if ($first -and $before -notcontains $first) { $add += $first }   # load-first item is subscribed last
 
-    Say "`nSubscribed now: $($before.Count) items.  Mode: $(if ($Strict) {'STRICT'} else {'Standard'})"
+    # ---- load order = subscription order (newest on top). Work out what has to be (re)subscribed in sequence.
+    $gameOrder = Get-GameOrder                                   # as L4D2 wrote it at its last launch
+    $after = @($before | Where-Object { $remove -notcontains $_ }) + @($add)
+    $cycle = @()
+    if ($Parity -and $order) {
+        $target = @($order | Where-Object { $after -contains $_ })              # top -> bottom
+        $cur = @($gameOrder | Where-Object { $target -contains $_ })
+        if (@($add | Where-Object { $target -contains $_ }).Count -gt 0 -or (($cur -join ',') -ne ($target -join ','))) {
+            $cycle = @($target[($target.Count - 1)..0])                         # bottom -> top
+        }
+    }
+    if ($first -and $cycle.Count -eq 0 -and ($add.Count -gt 0 -or ($gameOrder.Count -gt 0 -and $gameOrder[0] -ne $first))) { $cycle = @($first) }
+    if ($first -and $cycle.Count -gt 0) { $cycle = @($cycle | Where-Object { $_ -ne $first }) + @($first) }   # load-first is always last = top
+
+    Say "`nSubscribed now: $($before.Count) items.  Mode: $(if ($Strict) {'STRICT'} else {'Standard'})$(if ($Parity) {' + PARITY'})"
     if ($add) { Say "`nWill SUBSCRIBE ($($add.Count)):" 'Green'; foreach ($i in $add) { Say "  + $i  $(Label $m $i)" } }
     if ($remove) { Say "`nWill UNSUBSCRIBE ($($remove.Count)):" 'Yellow'; foreach ($i in $remove) { $l = Label $m $i; $r = (@($m.knownBad) | Where-Object { $_ -and [uint64]"$($_.id)" -eq $i }).reason; Say "  - $i  $l$(if ($r) {"  ($r)"})" } }
     $missingRec = @($rec | Where-Object { $before -notcontains $_ })
     if ($missingRec -and -not $Strict) { Say "`nRecommended (optional, not changed):" 'DarkCyan'; foreach ($i in $missingRec) { Say "  ? https://steamcommunity.com/sharedfiles/filedetails/?id=$i  $(Label $m $i)" } }
     if (-not $add -and -not $remove) { Say "`nSubscriptions already match." 'Green' }
+    if ($cycle.Count -eq 1) { Say "`nLoad order: will re-subscribe $($cycle[0]) ($(Label $m $cycle[0])) so it loads first (takes effect at your next launch)." 'Green' }
+    elseif ($cycle.Count -gt 1) { Say "`nLoad order: will (re)subscribe $($cycle.Count) add-ons one by one in Etto's order (about $([int]($cycle.Count * 1.6)) s; takes effect at your next launch). Nothing is re-downloaded." 'Green' }
+    elseif ($first) { Say "`nLoad order OK: $first is already on top." 'Green' }
+    if (-not $Parity -and $par) {
+        $missPar = @($par | Where-Object { $before -notcontains $_ })
+        $mb = 0; foreach ($it in @($m.parity)) { if ($it -and $missPar -contains [uint64]"$($it.id)" -and $it.mb) { $mb += [double]$it.mb } }
+        if ($missPar) { Say ("`nOptional: Parity.cmd copies Etto's full client setup and load order ({0} more add-ons, about {1:N1} GB to download)." -f $missPar.Count, ($mb / 1024)) 'DarkCyan' }
+    }
 
     # ---- warnings: mechanical file-path checks on items the manifest does not know about ----
-    $known = @($req) + @($rec) + @($removeSet)
+    $known = @($req) + @($rec) + @($par) + @($removeSet)
     $reqMissions = @{}; $reqMaps = @{}
     foreach ($id in $req) {
         $f = Join-Path $addonsDir "$id.vpk"
@@ -293,7 +349,8 @@ try {
     }
 
     if ($DryRun) { Say "`nDry run - nothing changed."; return }
-    if (($add -or $remove -or $first) -and -not $Yes) { if ((Read-Host "`nApply these changes and fix the load order? (y/n)") -notmatch '^y') { return } }
+    if (-not $add -and -not $remove -and $cycle.Count -eq 0) { Say "`nNothing to do."; return }
+    if (-not $Yes) { if ((Read-Host "`nApply these changes? (y/n)") -notmatch '^y') { return } }
 
     # ---- snapshot, then apply ----
     $snapDir = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd-HHmmss')
@@ -302,19 +359,19 @@ try {
     if (Test-Path $addonList) { Copy-Item $addonList (Join-Path $snapDir 'addonlist.txt') }
     Say "`nSnapshot saved: $snapDir  (Restore.cmd undoes this run)"
 
-    if ($add -or $remove) { Apply-Changes $add $remove }
-    Update-AddonList $first $req $remove
-    Say "`naddonlist.txt updated: required items enabled$(if ($first) {", $first loads first"})." 'Green'
+    $plain = @($add | Where-Object { $cycle -notcontains $_ })
+    if ($plain -or $remove) { Apply-Changes $plain $remove }
+    if ($cycle) { Set-SubscriptionOrder $cycle }
+    Update-AddonList $first $want $remove
+    Say "`naddonlist.txt updated: required items enabled." 'Green'
     # L4D2 (legacy Workshop) downloads new items itself when it starts, and may re-order addonlist.txt.
-    $notDownloaded = @($req | Where-Object { -not (Test-Path (Join-Path $addonsDir "$_.vpk")) })
+    $notDownloaded = @($want | Where-Object { -not (Test-Path (Join-Path $addonsDir "$_.vpk")) })
     if ($notDownloaded.Count -gt 0) {
-        Say "`n$($notDownloaded.Count) required add-on(s) are not downloaded yet. Left 4 Dead 2 downloads them itself:" 'Yellow'
+        Say "`n$($notDownloaded.Count) add-on(s) are not downloaded yet. Left 4 Dead 2 downloads them itself:" 'Yellow'
         Say '  1. Launch Left 4 Dead 2 and stay at the main menu until the add-on downloads finish.' 'Yellow'
-        Say '  2. Quit the game.' 'Yellow'
-        Say '  3. Run Sync.cmd again (it fixes the load order now that everything is present).' 'Yellow'
-        Say '  4. Launch and play.' 'Yellow'
+        Say '  2. Quit the game, then launch again and play. (The load order is already set by this run.)' 'Yellow'
     } else {
-        Say "`nDone. Launch Left 4 Dead 2 once (it removes unsubscribed items), quit, then launch again and play." 'Cyan'
+        Say "`nDone. Launch Left 4 Dead 2 once (it applies the new load order and removes unsubscribed items), quit, then launch again and play." 'Cyan'
     }
 }
 finally {
