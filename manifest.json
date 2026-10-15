@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-10-14",
+  "updated": "2026-10-15",
   "latestScript": 2,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
@@ -257,6 +257,11 @@
   ],
   "parity": [
     {
+      "id": "775712456",
+      "label": "CRYSIS3 SCARAB(Desert Rifle)",
+      "mb": 62.5
+    },
+    {
       "id": "1290500976",
       "label": "GoreMod V2",
       "mb": 0.2
@@ -295,11 +300,6 @@
       "id": "3684908818",
       "label": "Expanded Witches Pack",
       "mb": 70.8
-    },
-    {
-      "id": "1649731007",
-      "label": "Daewoo K2 (Desert Rifle)",
-      "mb": 34.0
     },
     {
       "id": "2329520936",
@@ -534,6 +534,7 @@
   ],
   "loadOrder": [
     "3818862657",
+    "775712456",
     "3820053123",
     "1290500976",
     "708613224",
@@ -558,7 +559,6 @@
     "2786888729",
     "189966504",
     "189953956",
-    "1649731007",
     "2329520936",
     "2962574542",
     "1937349307",
