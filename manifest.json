@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-10-13",
+  "updated": "2026-10-14",
   "latestScript": 2,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
@@ -129,6 +129,66 @@
     {
       "id": "3363605876",
       "label": "Pier Pressure"
+    },
+    {
+      "id": "316053033",
+      "label": "Devil Mountain"
+    },
+    {
+      "id": "189941645",
+      "label": "The Bloody Moors 1/5"
+    },
+    {
+      "id": "189949153",
+      "label": "The Bloody Moors 2/5"
+    },
+    {
+      "id": "189953956",
+      "label": "The Bloody Moors 3/5"
+    },
+    {
+      "id": "189966504",
+      "label": "The Bloody Moors 4/5"
+    },
+    {
+      "id": "189970619",
+      "label": "The Bloody Moors 5/5"
+    },
+    {
+      "id": "121116980",
+      "label": "Diescraper Redux"
+    },
+    {
+      "id": "121086524",
+      "label": "Urban Flight"
+    },
+    {
+      "id": "1575673903",
+      "label": "Dark Carnival: Remix"
+    },
+    {
+      "id": "2715152116",
+      "label": "Salvation Falls"
+    },
+    {
+      "id": "3274783750",
+      "label": "Pouring (Sanity) Down the Drain"
+    },
+    {
+      "id": "526660543",
+      "label": "Energy Crisis"
+    },
+    {
+      "id": "2692808848",
+      "label": "Dr. Malroy's Absolution"
+    },
+    {
+      "id": "1741649436",
+      "label": "The Curse of Lazar Castle"
+    },
+    {
+      "id": "2786888729",
+      "label": "Lab 024"
     }
   ],
   "recommended": [
@@ -181,6 +241,11 @@
       "id": "3161215418",
       "label": "[xdr] rng shove",
       "reason": "xdReanims add-on, same crash family"
+    },
+    {
+      "id": "2881051780",
+      "label": "A Qualia Macabre",
+      "reason": "replaces 11 stock common-infected models and the common-infected sound script on every map (breaks hitbox parity)"
     }
   ],
   "notes": [
