@@ -1,0 +1,7 @@
+{
+  "_comment": "slot -> { variant name -> Workshop ID }. Variants are subscribed but DISABLED in the add-on list; tools/pool_build.py re-paths them.",
+  "desert_rifle": {
+    "k2": "1649731007",
+    "colt933": "2233803571"
+  }
+}

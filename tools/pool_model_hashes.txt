@@ -1,0 +1,15 @@
+# sha256  bytes  path  - expected tools/pool_build.py MODEL output for tools/pool.json (built 2026-10-15 from the Workshop versions current then)
+a8c1087d2858a83f60c6e563b10476757214f53e3df687e52bffde1147ffa346     301560  models/v_models/etto_pool/v_desert_rifle_colt933.dx90.vtx
+9937d110cd56fbb3d895a331d4dbfe4ed92ce032732fe2425ab8e982e9b1f542     127832  models/v_models/etto_pool/v_desert_rifle_colt933.mdl
+d5e00c8d87acf8f37572267261ea377c121f1754879f8016c9a33c416ac85368    1163904  models/v_models/etto_pool/v_desert_rifle_colt933.vvd
+ca4d3c2510cf45e31dbece47ce47202449b67a6e5fd7aace6cb0ba9e93c3fd28     127409  models/v_models/etto_pool/v_desert_rifle_k2.dx90.vtx
+99d0987677c3a9d0c39d6050e48bdb12d9b463b0b78eca07ce7479cae81048a8     159516  models/v_models/etto_pool/v_desert_rifle_k2.mdl
+5d56a7e0628e83b2ee7c0d47db41a51ecb8b4da80d66bdac81862996b8b28c06     567168  models/v_models/etto_pool/v_desert_rifle_k2.vvd
+61af9ecc2be53bc9f00b970cca0d42a7bae78d7931a1e40c02097c7785d30835     301544  models/w_models/weapons/etto_pool/w_desert_rifle_colt933.dx90.vtx
+243c2e31fcdc70a13961e8a7fcbc273d65508d61ba355b19c5aca1884f25cd5d       4396  models/w_models/weapons/etto_pool/w_desert_rifle_colt933.mdl
+31322e81e9286c86fc49f82c1d2b5ab89dc0f075ffc67d1693bd59cb8c6437e5       1659  models/w_models/weapons/etto_pool/w_desert_rifle_colt933.phy
+28316acb8417dbb12c141e7499c07ecc26d6aa8930235525a9c2ec5520611939    1163904  models/w_models/weapons/etto_pool/w_desert_rifle_colt933.vvd
+94c75a3dc1c2c5c0d5af9d392569e426a5d65796750bd9d871ee92469b65f8b1     127074  models/w_models/weapons/etto_pool/w_desert_rifle_k2.dx90.vtx
+29934d6a375f2120212d75f5f79098856be5bb1f25ab1531bd742fd889a3d1f1       5596  models/w_models/weapons/etto_pool/w_desert_rifle_k2.mdl
+50515607cf9bb78435e6b2550f9ead3d58dfd5a12c90eb2c4a7c5c528182c523       1558  models/w_models/weapons/etto_pool/w_desert_rifle_k2.phy
+bb41843b99ea2d36bf86ae1a0ae064af136c8c5a4b19ecc923dc6c1617b2daec     564608  models/w_models/weapons/etto_pool/w_desert_rifle_k2.vvd

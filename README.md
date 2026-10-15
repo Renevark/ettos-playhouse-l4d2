@@ -53,6 +53,24 @@ anything from it.
 
 While it runs, Steam briefly shows you as "playing Left 4 Dead 2".
 
+## Weapon pool (in testing)
+
+The server can give each spawned gun of a class a random look from a pool of Workshop gun mods (model, animations, its own
+reload sounds). Because gun mods all overwrite the same stock files, each variant has to live at its own path:
+`tools/pool_build.py` builds that from **your own** subscribed copies (nothing third-party is redistributed here).
+
+- `tools/pool.json` lists the variants per slot (Workshop IDs). Subscribe to them, launch L4D2 once so they download, then
+  **disable** them in the in-game Add-ons list (they're only used as sources).
+- `python -I tools/pool_build.py <out_dir>` builds the tree; pack it with L4D2's `bin\vpk.exe` into `addons\etto_pool.vpk`.
+  New sounds also need a `sound\sound.cache` (built in-game with `snd_buildsoundcachefordirectory <dir>`).
+- Model output is deterministic; `tools/pool_model_hashes.txt` lists the expected hashes (the server checks the same).
+- Optional: put Microsoft's `texconv.exe` ([DirectXTex releases](https://github.com/microsoft/DirectXTex/releases)) in
+  `tools/bin/` to re-encode uncompressed textures as DXT (much less memory; scope glass is left alone). Without it,
+  textures are copied as they are.
+- Set `L4D2_DIR` if Left 4 Dead 2 isn't in the default Steam library.
+
+Until every player has the pool, the server keeps the feature off: anyone without it would see ERROR models.
+
 ## For maintainers
 
 Edit `manifest.json`:
