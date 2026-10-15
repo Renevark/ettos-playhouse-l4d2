@@ -8,7 +8,11 @@
   "required": [
     {
       "id": "3818862657",
-      "label": "Survivor Set Patch v2 (friends-only; must load first)"
+      "label": "Etto's Playhouse Patch v3 (survivor sets + compatibility fixes; must load first)"
+    },
+    {
+      "id": "3820053123",
+      "label": "Etto's Playhouse Threat Cue (sounds for the server's threat cue)"
     },
     {
       "id": "142086881",
