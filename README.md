@@ -53,10 +53,15 @@ anything from it.
 
 While it runs, Steam briefly shows you as "playing Left 4 Dead 2".
 
-## Weapon pool (in testing)
+## Weapon pool (archived 2026-10-15)
 
-The server can give each spawned gun of a class a random look from a pool of Workshop gun mods (model, animations, its own
-reload sounds). Because gun mods all overwrite the same stock files, each variant has to live at its own path:
+> **Archived, not in use.** The idea worked server-side, but L4D2's client re-applies the weapon script's viewmodel inside
+> its own prediction on every shot, reload and deploy, so the first-person gun flickered back to the slot's normal model
+> and played its reload sounds. Fixing that needs client code, so the experiment was stopped. The tools are kept for
+> reference; you don't need them.
+
+The idea: the server gives each spawned gun of a class a random look from a pool of Workshop gun mods (model, animations,
+its own reload sounds). Because gun mods all overwrite the same stock files, each variant has to live at its own path:
 `tools/pool_build.py` builds that from **your own** subscribed copies (nothing third-party is redistributed here).
 
 - `tools/pool.json` lists the variants per slot (Workshop IDs). Subscribe to them, launch L4D2 once so they download, then
@@ -69,7 +74,7 @@ reload sounds). Because gun mods all overwrite the same stock files, each varian
   textures are copied as they are.
 - Set `L4D2_DIR` if Left 4 Dead 2 isn't in the default Steam library.
 
-Until every player has the pool, the server keeps the feature off: anyone without it would see ERROR models.
+The server plugin is unloaded; don't install a pool add-on.
 
 ## For maintainers
 
