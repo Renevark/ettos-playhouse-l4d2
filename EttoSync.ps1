@@ -28,7 +28,7 @@ param(
     [string]$ManifestFile
 )
 
-$ScriptVersion = 2
+$ScriptVersion = 3
 $ErrorActionPreference = 'Stop'
 
 # ---- steam_api.dll in L4D2 is 32-bit: make sure we run in 32-bit PowerShell ----------------------------
@@ -173,6 +173,7 @@ function Get-Manifest {
         }
     }
     if ($m.loadFirst -and "$($m.loadFirst)" -notmatch '^\d{6,12}$') { Fail 'Manifest loadFirst is not a Workshop id.' }
+    foreach ($o in @($m.loadFirstAll)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadFirstAll has an invalid Workshop id '$o'." } }
     foreach ($o in @($m.loadOrder)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadOrder has an invalid Workshop id '$o'." } }
     return $m
 }
@@ -195,7 +196,7 @@ function Get-GameOrder {
     $t = [IO.File]::ReadAllText($addonList)
     @([regex]::Matches($t, '"workshop[\\/](\d+)\.vpk"\s*"1"') | ForEach-Object { [uint64]$_.Groups[1].Value })
 }
-function Update-AddonList([uint64]$first, [uint64[]]$enable, [uint64[]]$drop) {
+function Update-AddonList([uint64[]]$tops, [uint64[]]$enable, [uint64[]]$drop) {
     if (-not (Test-Path $addonList)) { Say '  addonlist.txt not found yet - L4D2 creates it on first launch; run this again afterwards.' 'Yellow'; return }
     $text = [IO.File]::ReadAllText($addonList)
     $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
@@ -207,7 +208,8 @@ function Update-AddonList([uint64]$first, [uint64[]]$enable, [uint64[]]$drop) {
         $e = $entries | Where-Object { (& $wid $_.name) -eq $id } | Select-Object -First 1
         if ($e) { $e.on = '1' } else { $entries.Insert(0, @{ name = "workshop\$id.vpk"; on = '1' }) }
     }
-    if ($first) {
+    for ($k = $tops.Count - 1; $k -ge 0; $k--) {               # tops[0] ends up first
+        $first = $tops[$k]
         $e = $entries | Where-Object { (& $wid $_.name) -eq $first } | Select-Object -First 1
         if (-not $e) { $e = @{ name = "workshop\$first.vpk"; on = '1' } } else { [void]$entries.Remove($e) }
         $e.on = '1'
@@ -288,12 +290,15 @@ try {
     $req = Ids $m.required; $rec = Ids $m.recommended; $par = Ids $m.parity
     $order = if ($Parity) { @($m.loadOrder | Where-Object { $_ } | ForEach-Object { [uint64]"$_" }) } else { @() }
     $want = if ($Parity) { @($req) + @($par) } else { @($req) }
-    $first = if ($m.loadFirst) { [uint64]"$($m.loadFirst)" } else { [uint64]0 }
+    # top-priority items, top first: loadFirstAll (v3+), else the single loadFirst
+    $tops = @(@($m.loadFirstAll) | Where-Object { $_ } | ForEach-Object { [uint64]"$_" })
+    if (-not $tops.Count -and $m.loadFirst) { $tops = @([uint64]"$($m.loadFirst)") }
+    $topsUp = if ($tops.Count) { @($tops[($tops.Count - 1)..0]) } else { @() }   # bottom -> top
     $removeSet = @(Ids $m.retired) + @(Ids $m.knownBad)
     if ($Strict) { $removeSet += @($before | Where-Object { $want -notcontains $_ -and $rec -notcontains $_ }) }
     $remove = @($before | Where-Object { $removeSet -contains $_ } | Select-Object -Unique)
-    $add = @($want | Where-Object { $before -notcontains $_ -and $_ -ne $first } | Select-Object -Unique)
-    if ($first -and $before -notcontains $first) { $add += $first }   # load-first item is subscribed last
+    $add = @($want | Where-Object { $before -notcontains $_ -and $tops -notcontains $_ } | Select-Object -Unique)
+    $add += @($topsUp | Where-Object { $before -notcontains $_ })    # load-first items are subscribed last
 
     # ---- load order = subscription order (newest on top). Work out what has to be (re)subscribed in sequence.
     $gameOrder = Get-GameOrder                                   # as L4D2 wrote it at its last launch
@@ -306,8 +311,10 @@ try {
             $cycle = @($target[($target.Count - 1)..0])                         # bottom -> top
         }
     }
-    if ($first -and $cycle.Count -eq 0 -and ($add.Count -gt 0 -or ($gameOrder.Count -gt 0 -and $gameOrder[0] -ne $first))) { $cycle = @($first) }
-    if ($first -and $cycle.Count -gt 0) { $cycle = @($cycle | Where-Object { $_ -ne $first }) + @($first) }   # load-first is always last = top
+    $topNow = @($gameOrder | Select-Object -First $tops.Count)
+    $topsOk = $gameOrder.Count -eq 0 -or (($topNow -join ',') -eq ($tops -join ','))
+    if ($tops.Count -and $cycle.Count -eq 0 -and ($add.Count -gt 0 -or -not $topsOk)) { $cycle = $topsUp }
+    if ($tops.Count -and $cycle.Count -gt 0) { $cycle = @($cycle | Where-Object { $tops -notcontains $_ }) + $topsUp }   # load-first items always last = top
 
     Say "`nSubscribed now: $($before.Count) items.  Mode: $(if ($Strict) {'STRICT'} else {'Standard'})$(if ($Parity) {' + PARITY'})"
     if ($add) { Say "`nWill SUBSCRIBE ($($add.Count)):" 'Green'; foreach ($i in $add) { Say "  + $i  $(Label $m $i)" } }
@@ -317,7 +324,7 @@ try {
     if (-not $add -and -not $remove) { Say "`nSubscriptions already match." 'Green' }
     if ($cycle.Count -eq 1) { Say "`nLoad order: will re-subscribe $($cycle[0]) ($(Label $m $cycle[0])) so it loads first (takes effect at your next launch)." 'Green' }
     elseif ($cycle.Count -gt 1) { Say "`nLoad order: will (re)subscribe $($cycle.Count) add-ons one by one in Etto's order (about $([int]($cycle.Count * 1.6)) s; takes effect at your next launch). Nothing is re-downloaded." 'Green' }
-    elseif ($first) { Say "`nLoad order OK: $first is already on top." 'Green' }
+    elseif ($tops.Count) { Say "`nLoad order OK: $($tops -join ', ') already on top." 'Green' }
     if (-not $Parity -and $par) {
         $missPar = @($par | Where-Object { $before -notcontains $_ })
         $mb = 0; foreach ($it in @($m.parity)) { if ($it -and $missPar -contains [uint64]"$($it.id)" -and $it.mb) { $mb += [double]$it.mb } }
@@ -329,7 +336,7 @@ try {
     $reqMissions = @{}; $reqMaps = @{}
     foreach ($id in $req) {
         $f = Join-Path $addonsDir "$id.vpk"
-        if (Test-Path $f) { foreach ($p in [EttoSteam]::VpkFiles($f)) { if ($id -ne $first -and $p -match '^missions/(.+\.txt)$') { $reqMissions[$Matches[1].ToLower()] = $id }; if ($p -match '^maps/(.+)\.bsp$') { $reqMaps[$Matches[1].ToLower()] = $id } } }
+        if (Test-Path $f) { foreach ($p in [EttoSteam]::VpkFiles($f)) { if ($tops -notcontains $id -and $p -match '^missions/(.+\.txt)$') { $reqMissions[$Matches[1].ToLower()] = $id }; if ($p -match '^maps/(.+)\.bsp$') { $reqMaps[$Matches[1].ToLower()] = $id } } }
     }
     $warn = @()
     foreach ($id in ($before | Where-Object { $known -notcontains $_ })) {
@@ -362,7 +369,7 @@ try {
     $plain = @($add | Where-Object { $cycle -notcontains $_ })
     if ($plain -or $remove) { Apply-Changes $plain $remove }
     if ($cycle) { Set-SubscriptionOrder $cycle }
-    Update-AddonList $first $want $remove
+    Update-AddonList $tops $want $remove
     Say "`naddonlist.txt updated: required items enabled." 'Green'
     # L4D2 (legacy Workshop) downloads new items itself when it starts, and may re-order addonlist.txt.
     $notDownloaded = @($want | Where-Object { -not (Test-Path (Join-Path $addonsDir "$_.vpk")) })

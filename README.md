@@ -81,7 +81,13 @@ The server plugin is unloaded; don't install a pool add-on.
 Edit `manifest.json`:
 
 - `required` / `recommended` / `retired` / `knownBad`: lists of `{ "id": "<workshop id>", "label": "..." }`. `knownBad` entries also take a `"reason"`.
-- `loadFirst`: the ID that must have top priority (the survivor-set patch). It is always subscribed last.
+- `loadFirstAll` (script v3+): the IDs that must have top priority, top first: Etto's Playhouse Custom Campaign
+  Fixes (mission overrides) and Etto's Playhouse Tweaks and Additions (content that applies on every map). They are
+  always subscribed last, in reverse, so they end up on top in this order.
+- `loadFirst`: the single top-priority ID read by older scripts (v2). Keep it set to the first `loadFirstAll` entry.
+- An add-on that contains `missions/*.txt` is a *mission* add-on: L4D2 only mounts it while one of its own campaigns
+  is played. Anything that must apply on every map (models, particles, sounds, script lists) goes in the Tweaks item,
+  which has no `missions/`.
 - `parity` (`{ "id", "label", "mb" }`) and `loadOrder` (top → bottom IDs): Etto's optional client setup, used by `Parity.cmd`.
   Regenerate both from Etto's PC with `python -I tools/gen_parity.py` after changing the add-ons, after a game launch
   so `addonlist.txt` reflects the real order.

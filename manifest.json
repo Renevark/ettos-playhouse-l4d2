@@ -1,14 +1,22 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-10-15",
-  "latestScript": 2,
+  "updated": "2026-10-19",
+  "latestScript": 3,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
+  "loadFirstAll": [
+    "3818862657",
+    "3823176475"
+  ],
   "required": [
     {
       "id": "3818862657",
-      "label": "Etto's Playhouse Patch v3 (survivor sets + compatibility fixes; must load first)"
+      "label": "Etto's Playhouse Custom Campaign Fixes (survivor-set mission overrides; must load first)"
+    },
+    {
+      "id": "3823176475",
+      "label": "Etto's Playhouse Tweaks and Additions (rain/snow, server lists and fixes on every map; must load first)"
     },
     {
       "id": "3820053123",
@@ -257,6 +265,51 @@
   ],
   "parity": [
     {
+      "id": "2913269280",
+      "label": "HD Lighting Effects",
+      "mb": 23.3
+    },
+    {
+      "id": "2762822156",
+      "label": "Fixed Reflections in The Passing",
+      "mb": 2.2
+    },
+    {
+      "id": "2365490433",
+      "label": "HQ - Barriers for Left 4  Dead 2",
+      "mb": 106.7
+    },
+    {
+      "id": "3008681693",
+      "label": "HD Vanilla Vomit Texture",
+      "mb": 5.3
+    },
+    {
+      "id": "3330345249",
+      "label": "Enhanced Tree foliage 5",
+      "mb": 48.7
+    },
+    {
+      "id": "2182880119",
+      "label": "Proper Stain Glass Windows",
+      "mb": 1.4
+    },
+    {
+      "id": "1351431144",
+      "label": "🩹Prop Fix Pack (70+ models)",
+      "mb": 34.0
+    },
+    {
+      "id": "3236501669",
+      "label": "Better Tree Pine Cards",
+      "mb": 8.0
+    },
+    {
+      "id": "604106385",
+      "label": "HD Explosion Decal",
+      "mb": 4.0
+    },
+    {
       "id": "775712456",
       "label": "CRYSIS3 SCARAB(Desert Rifle)",
       "mb": 62.5
@@ -462,11 +515,6 @@
       "mb": 276.2
     },
     {
-      "id": "139883646",
-      "label": "Cinematic Lighting Effects",
-      "mb": 2.8
-    },
-    {
       "id": "3161277824",
       "label": "Bigger Addon Browser / Menu",
       "mb": 0.0
@@ -534,6 +582,16 @@
   ],
   "loadOrder": [
     "3818862657",
+    "3823176475",
+    "2913269280",
+    "2762822156",
+    "2365490433",
+    "3008681693",
+    "3330345249",
+    "2182880119",
+    "1351431144",
+    "3236501669",
+    "604106385",
     "775712456",
     "3820053123",
     "1290500976",
@@ -617,7 +675,6 @@
     "1541610516",
     "2193880197",
     "3323735325",
-    "139883646",
     "3161277824",
     "2401339639",
     "3135451698",
