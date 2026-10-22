@@ -9,6 +9,8 @@ survivor-set fix, and none of the add-ons known to crash on it.
 2. Double-click **`Sync.cmd`**. Review the list it prints, then answer `y`.
 3. If it says add-ons still need downloading: launch Left 4 Dead 2 and **wait at the main menu until the add-on downloads finish**
    (Left 4 Dead 2 downloads Workshop items itself when it starts), then quit.
+   Don't subscribe to big add-ons while you're in a game: the game loads the whole download into memory at once, and a large
+   campaign (Vltava is 813 MB) can crash it with OUT OF MEMORY. Subscribe with the game closed, or at the main menu right after launch.
 4. Launch the game and play. The load order is already set by the sync; the game applies it at launch.
 
 Run it again any time. It always reads the current list from `manifest.json` in this repo, so you never need a new copy of the script
@@ -30,9 +32,17 @@ unless it tells you one is available.
 |---|---|
 | `Sync.cmd -DryRun` | Shows what it would do and changes nothing |
 | `Sync.cmd -Strict` | Makes your subscriptions match this list **exactly** (required + recommended). Use it if you keep crashing. |
-| **`Parity.cmd`** | **Optional:** also installs Etto's own client setup (weapons, sounds, textures, survivor models; about 1.5 GB) **in the exact same load order**, so your game looks and sounds the same as Etto's. Doesn't remove anything of yours. |
+| **`Parity.cmd`** | **Optional:** also installs Etto's own client setup (weapons, sounds, textures, survivor models; about 2 GB) **in the exact same load order**, so your game looks and sounds the same as Etto's. Doesn't remove anything of yours. With Etto's local pack next to it, it also installs Etto's non-Workshop tweaks (see below); a same-named file already in `addons\` is replaced (the old copy goes into the snapshot). |
 | `Parity.cmd -Strict` | An exact mirror of Etto's setup: everything not in it is unsubscribed (snapshot first; `Restore.cmd` undoes it). |
-| `Restore.cmd` | Undoes the most recent sync: resubscribes what it removed and restores your `addonlist.txt` |
+| `Restore.cmd` | Undoes the most recent sync: resubscribes what it removed, restores your `addonlist.txt` and takes back any local-pack files it installed |
+
+### Etto's local pack (Parity only)
+
+A few of Etto's tweaks aren't on the Workshop because they're modified copies of other people's add-ons (dimmer HD Lighting
+glows, lighter gun/skin textures, the ekgHUD patch). Etto hands them out personally as `EttosPlayhouse_LocalPack.zip`; this repo
+only lists their names, sizes and SHA-256s in `manifest.json` (`localPack`). Put the zip next to `Parity.cmd` (or pass
+`-LocalPack <path>`): Parity checks each file against its SHA-256, copies it into `left4dead2\addons\` and switches it on.
+Anything in the zip that isn't on the list is ignored. If a file is outdated, Parity says so; ask Etto for a fresh pack.
 
 ### Load order (why the script re-subscribes things)
 
@@ -91,6 +101,9 @@ Edit `manifest.json`:
 - `parity` (`{ "id", "label", "mb" }`) and `loadOrder` (top → bottom IDs): Etto's optional client setup, used by `Parity.cmd`.
   Regenerate both from Etto's PC with `python -I tools/gen_parity.py` after changing the add-ons, after a game launch
   so `addonlist.txt` reflects the real order.
+- `localPack` (script v4+): `{ "zip": "<name>.zip", "files": [{ "name", "label", "bytes", "sha256" }] }` for Etto's
+  non-Workshop add-ons. `gen_parity.py` refreshes `bytes`/`sha256` from Etto's `addons` folder. Push the manifest
+  **before** handing out a new pack zip: friends' `Parity.cmd` checks the zip against the published list.
 - `latestScript`: bump it when `EttoSync.ps1` changes, so older copies tell players to update.
 
 GitHub caches raw files for a few minutes, so players see an edit after roughly 5 minutes.

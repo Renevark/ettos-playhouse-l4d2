@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-10-19",
-  "latestScript": 3,
+  "updated": "2026-10-21",
+  "latestScript": 4,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
   "loadFirstAll": [
@@ -201,6 +201,10 @@
     {
       "id": "2786888729",
       "label": "Lab 024"
+    },
+    {
+      "id": "3564279976",
+      "label": "Vltava (813 MB: subscribe with the game closed)"
     }
   ],
   "recommended": [
@@ -261,7 +265,9 @@
     }
   ],
   "notes": [
-    "ekgHUD users: ask Etto for the ekgHUD compatibility patch so the server's survivor table shows up."
+    "Parity.cmd (sync script v4+) also installs Etto's local add-ons (HD Lighting dimming, lighter textures, ekgHUD patch) from EttosPlayhouse_LocalPack.zip, which Etto hands out personally. Put it next to Parity.cmd.",
+    "ekgHUD users: the ekgHUD compatibility patch (so the server's survivor table shows up) comes in Etto's local pack; ask Etto for it.",
+    "Big campaigns (e.g. Vltava, 813 MB): subscribe or sync with Left 4 Dead 2 CLOSED. The game downloads a Workshop item into one memory buffer the size of the whole file, so subscribing to a big one mid-game can crash it with OUT OF MEMORY."
   ],
   "parity": [
     {
@@ -560,6 +566,11 @@
       "mb": 35.3
     },
     {
+      "id": "2796999334",
+      "label": "ekgHUD",
+      "mb": 9.8
+    },
+    {
       "id": "2484822104",
       "label": "RNG L4D1 SI Model Vscript",
       "mb": 0.0
@@ -583,6 +594,7 @@
   "loadOrder": [
     "3818862657",
     "3823176475",
+    "3564279976",
     "2913269280",
     "2762822156",
     "2365490433",
@@ -687,10 +699,35 @@
     "3357239570",
     "3391430054",
     "3391431043",
+    "2796999334",
     "2484822104",
     "3174717317",
     "3264007281",
     "3130909629",
     "3212592872"
-  ]
+  ],
+  "localPack": {
+    "zip": "EttosPlayhouse_LocalPack.zip",
+    "updated": "2026-10-21",
+    "files": [
+      {
+        "name": "etto_glowdim.vpk",
+        "label": "HD Lighting Effects glows at 50% (Etto's brightness change)",
+        "bytes": 24387227,
+        "sha256": "d6d644da62d0d30d130c13fbf5994bcc3f6d4bc74f0bd9a5e0b7298ca52a0059"
+      },
+      {
+        "name": "etto_lite.vpk",
+        "label": "Lighter textures for 20 gun/skin packs (saves ~300 MB of game memory)",
+        "bytes": 90601159,
+        "sha256": "721c03b84347d7e9c18f56fce63008ac6f4ac7309e378194b0644577730a8f32"
+      },
+      {
+        "name": "ekghud_scripthud.vpk",
+        "label": "ekgHUD compatibility patch (the server's survivor table)",
+        "bytes": 10310951,
+        "sha256": "5807ae21956f58cbf895d32e100b493888128eff816251641c9e41d9c8123c73"
+      }
+    ]
+  }
 }

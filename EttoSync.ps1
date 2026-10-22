@@ -12,6 +12,9 @@
     -Restore   Undo a previous run from its snapshot (latest by default, or -Backup <folder>).
     -DryRun    Show what would change, change nothing.
     -Yes       Do not ask for confirmation.
+    -LocalPack With -Parity: install Etto's local (non-Workshop) add-ons from the zip Etto hands out personally.
+               Default: EttosPlayhouse_LocalPack.zip next to this script. Each file must match the SHA-256 the
+               manifest lists; anything else in the zip is ignored.
 
   It uses the steam_api.dll that ships with your own Left 4 Dead 2 install to talk to your running Steam
   client - the same calls the Workshop "Subscribe" button makes. The manifest is data only (Workshop IDs and
@@ -25,11 +28,23 @@ param(
     [switch]$Yes,
     [string]$Backup,
     [string]$ManifestUrl = 'https://raw.githubusercontent.com/Renevark/ettos-playhouse-l4d2/main/manifest.json',
-    [string]$ManifestFile
+    [string]$ManifestFile,
+    [string]$LocalPack
 )
 
-$ScriptVersion = 3
+$ScriptVersion = 4
 $ErrorActionPreference = 'Stop'
+
+# resolve file arguments against the current PowerShell location now: the 32-bit relaunch below and the Steam
+# session (which changes directory) would otherwise resolve them somewhere else
+foreach ($k in 'ManifestFile', 'LocalPack') {
+    $v = Get-Variable $k -ValueOnly
+    if ($v) {
+        $full = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($v)
+        Set-Variable $k $full
+        if ($PSBoundParameters.ContainsKey($k)) { $PSBoundParameters[$k] = $full }
+    }
+}
 
 # ---- steam_api.dll in L4D2 is 32-bit: make sure we run in 32-bit PowerShell ----------------------------
 if ([IntPtr]::Size -ne 4) {
@@ -68,6 +83,7 @@ foreach ($l in ($libs | Select-Object -Unique)) {
 if (-not $game) { Fail 'Could not find a Left 4 Dead 2 install in your Steam libraries.' }
 $addonsDir = Join-Path $game 'left4dead2\addons\workshop'
 $addonList = Join-Path $game 'left4dead2\addonlist.txt'
+$localDir = Join-Path $game 'left4dead2\addons'
 $work = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'EttosPlayhouse'
 $backupRoot = Join-Path $work 'backups'
 New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
@@ -175,6 +191,12 @@ function Get-Manifest {
     if ($m.loadFirst -and "$($m.loadFirst)" -notmatch '^\d{6,12}$') { Fail 'Manifest loadFirst is not a Workshop id.' }
     foreach ($o in @($m.loadFirstAll)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadFirstAll has an invalid Workshop id '$o'." } }
     foreach ($o in @($m.loadOrder)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadOrder has an invalid Workshop id '$o'." } }
+    foreach ($f in @($m.localPack.files)) {
+        if ($null -eq $f) { continue }
+        if ("$($f.name)" -notmatch '^[A-Za-z0-9_\-]+\.vpk\z') { Fail "Manifest localPack has an invalid file name '$($f.name)'." }
+        if ("$($f.sha256)" -notmatch '^[0-9a-f]{64}\z') { Fail "Manifest localPack has an invalid SHA-256 for '$($f.name)'." }
+        if ($null -ne $f.bytes -and "$($f.bytes)" -notmatch '^\d+\z') { Fail "Manifest localPack has an invalid size for '$($f.name)'." }
+    }
     return $m
 }
 function Ids($section) { @($section | Where-Object { $_ } | ForEach-Object { [uint64]"$($_.id)" }) }
@@ -214,6 +236,100 @@ function Update-AddonList([uint64[]]$tops, [uint64[]]$enable, [uint64[]]$drop) {
         if (-not $e) { $e = @{ name = "workshop\$first.vpk"; on = '1' } } else { [void]$entries.Remove($e) }
         $e.on = '1'
         $entries.Insert(0, $e)
+    }
+    $out = '"AddonList"' + $nl + '{' + $nl
+    foreach ($e in $entries) { $out += "`t`"$($e.name)`"`t`t`"$($e.on)`"" + $nl }
+    $out += '}' + $nl
+    [IO.File]::WriteAllText($addonList, $out, (New-Object Text.UTF8Encoding($false)))
+}
+
+# ---- local pack: Etto's non-Workshop add-ons, handed out personally as a zip -------------------------------
+# The manifest only lists their names, sizes and SHA-256s; the files themselves never come from the internet.
+function Sha256File($path) { (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLower() }
+function Sha256Entry($entry) {
+    $s = $entry.Open()
+    try { ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($s)) -replace '-', '').ToLower() } finally { $s.Dispose() }
+}
+function LocalEntryOn($name) {              # is there an enabled addonlist.txt entry for this local add-on?
+    if (-not (Test-Path $addonList)) { return $true }     # no list yet: L4D2 adds new local add-ons enabled at first launch
+    $t = [IO.File]::ReadAllText($addonList)
+    return [regex]::IsMatch($t, '"' + [regex]::Escape($name) + '"\s*"1"', 'IgnoreCase')
+}
+function Get-LocalPackPlan($m) {
+    $files = @($m.localPack.files | Where-Object { $_ })
+    if (-not $files.Count) { return $null }
+    $zipName = if ("$($m.localPack.zip)" -match '^[A-Za-z0-9_\-]+\.zip\z') { "$($m.localPack.zip)" } else { 'EttosPlayhouse_LocalPack.zip' }
+    $zip = if ($LocalPack) { $LocalPack } else { Join-Path $PSScriptRoot $zipName }
+    $plan = [pscustomobject]@{ zip = $zip; zipName = $zipName; given = [bool]$LocalPack; haveZip = (Test-Path -LiteralPath $zip); unreadable = $false
+                               install = @(); current = @(); missing = @(); stale = @(); enable = @() }
+    $entries = @{}
+    $installed = @{}
+    foreach ($f in $files) { $dst = Join-Path $localDir $f.name; $installed[$f.name] = (Test-Path -LiteralPath $dst) -and (Sha256File $dst) -eq $f.sha256 }
+    if ($plan.haveZip) {
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $z = [IO.Compression.ZipFile]::OpenRead($zip)
+            try {
+                foreach ($e in $z.Entries) { if ($e.FullName -notmatch '[\\/]') { $entries[$e.Name.ToLower()] = $e } }
+                foreach ($f in $files) {
+                    if ($installed[$f.name]) { $plan.current += $f; continue }
+                    $e = $entries[$f.name.ToLower()]
+                    if (-not $e) { $plan.missing += $f; continue }
+                    if (($f.bytes -and [int64]$e.Length -ne [int64]$f.bytes) -or (Sha256Entry $e) -ne $f.sha256) { $plan.stale += $f; continue }
+                    $plan.install += $f
+                }
+            } finally { $z.Dispose() }
+        } catch {
+            $plan.unreadable = $true; $plan.haveZip = $false
+            $plan.install = @(); $plan.current = @(); $plan.missing = @(); $plan.stale = @()
+        }
+    }
+    if (-not $plan.haveZip) {
+        foreach ($f in $files) { if ($installed[$f.name]) { $plan.current += $f } else { $plan.missing += $f } }
+    }
+    $plan.enable = @($plan.current | Where-Object { -not (LocalEntryOn $_.name) })
+    return $plan
+}
+# Extracts each planned file to a temp name, checks its SHA-256, then moves it into addons\. An existing copy is moved
+# into the snapshot first. Each file is recorded in the snapshot (name, sha256, replaced) BEFORE anything is moved, so
+# Restore can undo a run that stopped half-way. Returns the names actually installed.
+function Install-LocalPack($plan, $snapDir) {
+    $done = @()
+    $log = Join-Path $snapDir 'localpack_installed.txt'
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $z = [IO.Compression.ZipFile]::OpenRead($plan.zip)
+    try {
+        foreach ($f in $plan.install) {
+            $dst = Join-Path $localDir $f.name
+            $tmp = "$dst.etto-tmp"
+            try {
+                $e = $z.Entries | Where-Object { $_.FullName -notmatch '[\\/]' -and $_.Name -ieq $f.name } | Select-Object -First 1
+                [IO.Compression.ZipFileExtensions]::ExtractToFile($e, $tmp, $true)
+                if ((Sha256File $tmp) -ne $f.sha256) { throw 'checksum does not match the list' }
+                $replaced = Test-Path -LiteralPath $dst
+                Add-Content -LiteralPath $log -Value ("{0}`t{1}`t{2}" -f $f.name, $f.sha256, [int]$replaced) -Encoding ASCII
+                if ($replaced) { Move-Item -LiteralPath $dst (Join-Path $snapDir $f.name) -Force }
+                Move-Item -LiteralPath $tmp $dst -Force
+                $done += $f.name
+                Say "  installed $($f.name)" 'Green'
+            } catch {
+                if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+                Say "  $($f.name): not installed ($($_.Exception.Message)). Ask Etto for a fresh pack, or run Restore.cmd." 'Yellow'
+            }
+        }
+    } finally { $z.Dispose() }
+    return $done
+}
+# Make sure each local add-on has an enabled entry in addonlist.txt (new ones go on top, like L4D2 does).
+function Enable-LocalAddons([string[]]$names) {
+    if (-not $names -or -not (Test-Path $addonList)) { return }
+    $text = [IO.File]::ReadAllText($addonList)
+    $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $entries = New-Object System.Collections.Generic.List[object]
+    foreach ($mm in [regex]::Matches($text, '"([^"]+\.vpk)"\s*"([01])"')) { $entries.Add(@{ name = $mm.Groups[1].Value; on = $mm.Groups[2].Value }) }
+    for ($k = $names.Count - 1; $k -ge 0; $k--) {
+        $e = $entries | Where-Object { $_.name -ieq $names[$k] } | Select-Object -First 1
+        if ($e) { $e.on = '1' } else { $entries.Insert(0, @{ name = $names[$k]; on = '1' }) }
     }
     $out = '"AddonList"' + $nl + '{' + $nl
     foreach ($e in $entries) { $out += "`t`"$($e.name)`"`t`t`"$($e.on)`"" + $nl }
@@ -271,10 +387,25 @@ try {
         $snap = @(Get-Content (Join-Path $dir 'subscribed.txt') | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [uint64]$_ })
         $add = @($snap | Where-Object { $before -notcontains $_ })
         $remove = @($before | Where-Object { $snap -notcontains $_ })
-        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt" 'Cyan'
+        $lpFile = Join-Path $dir 'localpack_installed.txt'
+        $lpRecs = @()
+        if (Test-Path $lpFile) {
+            foreach ($line in Get-Content $lpFile) {
+                $c = "$line" -split "`t"
+                if ($c.Count -ge 3 -and $c[0] -match '^[A-Za-z0-9_\-]+\.vpk\z' -and $c[1] -match '^[0-9a-f]{64}\z') { $lpRecs += [pscustomobject]@{ name = $c[0]; sha = $c[1]; replaced = ($c[2] -eq '1') } }
+            }
+        }
+        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})" 'Cyan'
         if ($DryRun) { Say 'Dry run - nothing changed.'; return }
         if (-not $Yes -and (Read-Host 'Proceed? (y/n)') -notmatch '^y') { return }
         Apply-Changes $add $remove
+        foreach ($r in $lpRecs) {
+            $cur = Join-Path $localDir $r.name; $old = Join-Path $dir $r.name
+            $ours = (Test-Path -LiteralPath $cur) -and (Sha256File $cur) -eq $r.sha
+            if (-not $ours -and (Test-Path -LiteralPath $cur)) { Say "  $($r.name) changed since that run - left as it is." 'Yellow'; continue }
+            if ($r.replaced -and (Test-Path -LiteralPath $old)) { Copy-Item -LiteralPath $old $cur -Force; Say "  $($r.name): previous copy put back" }
+            elseif ($ours) { Remove-Item -LiteralPath $cur -Force; Say "  $($r.name): removed" }
+        }
         $al = Join-Path $dir 'addonlist.txt'
         if (Test-Path $al) { Copy-Item $al $addonList -Force }
         Say "`nRestored. Launch Left 4 Dead 2 once so Steam re-downloads anything that was removed." 'Green'
@@ -355,8 +486,26 @@ try {
         foreach ($w in $warn) { Say "  ! https://steamcommunity.com/sharedfiles/filedetails/?id=$($w.id)" 'Magenta'; foreach ($y in $w.why) { Say "      $y" } }
     }
 
+    # ---- Etto's local add-ons (Parity only) ----
+    $lp = if ($Parity) { Get-LocalPackPlan $m } else { $null }
+    if ($LocalPack -and -not $Parity) { Say "`n-LocalPack only applies to Parity.cmd (-Parity); ignored." 'Yellow' }
+    if ($lp) {
+        $all = @($m.localPack.files | Where-Object { $_ })
+        if ($lp.install) { Say "`nWill INSTALL Etto's local add-ons from $(Split-Path $lp.zip -Leaf) ($($lp.install.Count)):" 'Green'; foreach ($f in $lp.install) { Say "  + $($f.name)  $($f.label)" } }
+        if ($lp.current.Count -eq $all.Count -and -not $lp.enable) { Say "`nEtto's local add-ons: all $($all.Count) installed and up to date." 'Green' }
+        if ($lp.enable) { Say "`nWill SWITCH ON Etto's local add-ons that are installed but off ($($lp.enable.Count)): $(@($lp.enable | ForEach-Object { $_.name }) -join ', ')" 'Green' }
+        if ($lp.missing) {
+            $why = if ($lp.unreadable) { "$(Split-Path $lp.zip -Leaf) is damaged or incomplete" } elseif ($lp.haveZip) { "not in $(Split-Path $lp.zip -Leaf)" } elseif ($lp.given) { "$($lp.zip) not found" } else { "no $($lp.zipName) next to this script" }
+            Say "`nEtto's local add-ons missing ($($lp.missing.Count), $why):" 'Yellow'
+            foreach ($f in $lp.missing) { Say "  ? $($f.name)  $($f.label)" }
+            Say "  These aren't on the Workshop. Ask Etto for the pack zip and put it next to Parity.cmd, then run Parity.cmd again." 'Yellow'
+        }
+        if ($lp.stale) { Say "`nThe pack zip has an older or newer copy of $($lp.stale.Count) file(s) than this list ($(@($lp.stale | ForEach-Object { $_.name }) -join ', ')). Ask Etto for a fresh pack." 'Yellow' }
+    }
+    $lpWork = $lp -and ($lp.install.Count -gt 0 -or $lp.enable.Count -gt 0)
+
     if ($DryRun) { Say "`nDry run - nothing changed."; return }
-    if (-not $add -and -not $remove -and $cycle.Count -eq 0) { Say "`nNothing to do."; return }
+    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork) { Say "`nNothing to do."; return }
     if (-not $Yes) { if ((Read-Host "`nApply these changes? (y/n)") -notmatch '^y') { return } }
 
     # ---- snapshot, then apply ----
@@ -370,6 +519,11 @@ try {
     if ($plain -or $remove) { Apply-Changes $plain $remove }
     if ($cycle) { Set-SubscriptionOrder $cycle }
     Update-AddonList $tops $want $remove
+    if ($lp -and $lp.install.Count -gt 0) {
+        Say "`nInstalling Etto's local add-ons:" 'Cyan'
+        [void](Install-LocalPack $lp $snapDir)
+    }
+    if ($lp) { Enable-LocalAddons @(@($lp.current) + @($lp.install) | ForEach-Object { $_.name } | Where-Object { Test-Path -LiteralPath (Join-Path $localDir $_) }) }
     Say "`naddonlist.txt updated: required items enabled." 'Green'
     # L4D2 (legacy Workshop) downloads new items itself when it starts, and may re-order addonlist.txt.
     $notDownloaded = @($want | Where-Object { -not (Test-Path (Join-Path $addonsDir "$_.vpk")) })
