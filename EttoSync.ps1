@@ -15,6 +15,10 @@
     -LocalPack With -Parity: install Etto's local (non-Workshop) add-ons from the zip Etto hands out personally.
                Default: EttosPlayhouse_LocalPack.zip next to this script. Each file must match the SHA-256 the
                manifest lists; anything else in the zip is ignored.
+    -NoConfig  With -Parity: don't touch the game config. Otherwise, when EttosPlayhouse_Server.txt (host:port) sits
+               next to this script, Parity probes the server and writes cfg\etto_net.cfg (rates + interp) plus marked
+               blocks in cfg\autoexec.cfg (console, ping on mouse5, F8 = join) and cfg\listenserver.cfg (stock values
+               for local games). Keys that are already bound are left alone. Restore.cmd takes it all out again.
 
   It uses the steam_api.dll that ships with your own Left 4 Dead 2 install to talk to your running Steam
   client - the same calls the Workshop "Subscribe" button makes. The manifest is data only (Workshop IDs and
@@ -29,10 +33,11 @@ param(
     [string]$Backup,
     [string]$ManifestUrl = 'https://raw.githubusercontent.com/Renevark/ettos-playhouse-l4d2/main/manifest.json',
     [string]$ManifestFile,
-    [string]$LocalPack
+    [string]$LocalPack,
+    [switch]$NoConfig
 )
 
-$ScriptVersion = 4
+$ScriptVersion = 5
 $ErrorActionPreference = 'Stop'
 
 # resolve file arguments against the current PowerShell location now: the 32-bit relaunch below and the Steam
@@ -84,6 +89,7 @@ if (-not $game) { Fail 'Could not find a Left 4 Dead 2 install in your Steam lib
 $addonsDir = Join-Path $game 'left4dead2\addons\workshop'
 $addonList = Join-Path $game 'left4dead2\addonlist.txt'
 $localDir = Join-Path $game 'left4dead2\addons'
+$cfgDir = Join-Path $game 'left4dead2\cfg'
 $work = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'EttosPlayhouse'
 $backupRoot = Join-Path $work 'backups'
 New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
@@ -337,6 +343,127 @@ function Enable-LocalAddons([string[]]$names) {
     [IO.File]::WriteAllText($addonList, $out, (New-Object Text.UTF8Encoding($false)))
 }
 
+# ---- game config: net settings + binds for Etto's server (Parity, hand-off folder only) ---------------------
+# The server address comes from EttosPlayhouse_Server.txt next to this script (in the folder Etto hands out), never
+# from the internet. Everything written is fenced by the markers below, so Restore can take it out again.
+$EttoBegin = "// >>> Etto's Playhouse (added by Parity.cmd; Restore.cmd removes it) >>>"
+$EttoEnd = "// <<< Etto's Playhouse <<<"
+$EttoNetHeader = "// Etto's Playhouse net settings - written by Parity.cmd"
+$CfgEnc = [Text.Encoding]::GetEncoding(28591)   # Latin-1: reads and writes every byte of a user cfg unchanged
+function Get-ServerAddress {
+    $f = Join-Path $PSScriptRoot 'EttosPlayhouse_Server.txt'
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    $a = "$(Get-Content -LiteralPath $f -TotalCount 1)".Trim()
+    if ($a -notmatch '^[A-Za-z0-9.\-]{1,100}:(\d{1,5})\z' -or [int]$Matches[1] -lt 1 -or [int]$Matches[1] -gt 65535) { Say "  EttosPlayhouse_Server.txt doesn't hold host:port - skipping the game config." 'Yellow'; return $null }
+    return $a
+}
+# Server-browser (A2S_INFO) queries, 0.4 s apart (servers answer ~3 queries/s per address). Returns ms timings.
+function Test-ServerLink([string]$addr, [int]$count = 24) {
+    $hostName, $port = $addr -split ':'
+    $udp = New-Object System.Net.Sockets.UdpClient
+    $udp.Client.ReceiveTimeout = 1000
+    $q = [byte[]](0xFF, 0xFF, 0xFF, 0xFF, 0x54) + [Text.Encoding]::ASCII.GetBytes("Source Engine Query") + [byte[]](0)
+    $rtt = New-Object System.Collections.Generic.List[double]; $lost = 0
+    try {
+        $udp.Connect($hostName, [int]$port)
+        $remote = New-Object System.Net.IPEndPoint([Net.IPAddress]::Any, 0)
+        for ($i = 0; $i -lt $count; $i++) {
+            while ($udp.Available -gt 0) { try { [void]$udp.Receive([ref]$remote) } catch { break } }   # drop late replies
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            [void]$udp.Send($q, $q.Length)
+            try {
+                $r = $udp.Receive([ref]$remote)
+                if ($r.Length -ge 5 -and $r[0] -eq 0xFF -and $r[1] -eq 0xFF -and $r[2] -eq 0xFF -and $r[3] -eq 0xFF -and ($r[4] -eq 0x49 -or $r[4] -eq 0x41)) { $rtt.Add($sw.Elapsed.TotalMilliseconds) } else { $lost++ }
+            } catch { $lost++ }
+            $left = 400 - [int]$sw.ElapsedMilliseconds
+            if ($left -gt 0) { Start-Sleep -Milliseconds $left }
+            Write-Host ("`r  probing the server {0}/{1}" -f ($i + 1), $count) -NoNewline
+        }
+    } catch { $lost = $count - $rtt.Count } finally { $udp.Close(); Write-Host '' }
+    $s = @($rtt | Sort-Object)
+    if (-not $s.Count) { return [pscustomobject]@{ ok = $false; sent = $count; lost = $count } }
+    $med = $s[[int][Math]::Floor(($s.Count - 1) / 2)]
+    $q1 = $s[[int][Math]::Floor(0.25 * ($s.Count - 1))]
+    $q3 = $s[[int][Math]::Ceiling(0.75 * ($s.Count - 1))]
+    # jitter = interquartile range: robust to a single slow reply (a clean line measures ~5 ms here, because the
+    # server answers once per 10 ms frame)
+    return [pscustomobject]@{ ok = $true; sent = $count; lost = $lost; median = $med; jitter = $q3 - $q1 }
+}
+# Current binds (game-written config.cfg, then autoexec.cfg outside our block); keys lower-case.
+function Get-Binds([string]$cfgDir) {
+    $b = @{}
+    foreach ($n in 'config.cfg', 'autoexec.cfg') {
+        $p = Join-Path $cfgDir $n
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        $t = Remove-EttoBlockText ($CfgEnc.GetString([IO.File]::ReadAllBytes($p)))
+        foreach ($mm in [regex]::Matches($t, '(?im)^\s*bind\s+"?([^"\s]+)"?\s+"?([^"\r\n]*)"?')) { $b[$mm.Groups[1].Value.ToLower()] = $mm.Groups[2].Value.Trim() }
+    }
+    return $b
+}
+function Remove-EttoBlockText([string]$t) {
+    $pat = '(?s)(\r?\n)?' + [regex]::Escape($EttoBegin) + '(?:(?!' + [regex]::Escape($EttoBegin) + ').)*?' + [regex]::Escape($EttoEnd) + '[^\r\n]*(\r?\n)?'
+    return [regex]::Replace($t, $pat, { param($mm) if ($mm.Groups[1].Success -and $mm.Groups[2].Success) { $mm.Groups[1].Value } else { '' } })
+}
+# Desired file contents; returns @{ path = content } (content $null = leave alone).
+function Get-ConfigPlan([string]$cfgDir, [string]$addr, $link) {
+    # The server answers browser queries once per server frame (10 ms at 100 tick), so a clean line already shows
+    # about 5-9 ms of spread; only clearly worse than that, or real loss, gets the more forgiving ratio 2.
+    $ratio = if ($link.ok -and $link.lost -lt 2 -and $link.jitter -le 12) { 1 } else { 2 }
+    $why = if (-not $link.ok) { "server didn't answer the probe; using the safer 2" } elseif ($link.lost -ge 2) { "$($link.lost) of $($link.sent) probes lost" } elseif ($link.jitter -gt 12) { "jitter $([Math]::Round($link.jitter, 1)) ms" } else { 'clean connection' }
+    $binds = Get-Binds $cfgDir
+    $lines = @('con_enable 1')
+    $notes = @()
+    if (-not $binds.ContainsKey('`') -or $binds['`'] -eq 'toggleconsole') { $lines += 'bind "`" "toggleconsole"' } else { $notes += "`` stays $($binds['`'])" }
+    $mouse5Fresh = -not $binds.ContainsKey('mouse5')
+    if ($mouse5Fresh -or $binds['mouse5'] -eq 'sm_mark') { $lines += 'bind "MOUSE5" "sm_mark"' } else { $notes += "mouse5 is taken ($($binds['mouse5'])), so the ping is on !mark only" }
+    $join = "exec etto_net; connect $addr"
+    if (-not $binds.ContainsKey('f8') -or $binds['f8'] -like 'exec etto_net; connect *') { $lines += "bind `"F8`" `"$join`"" } else { $notes += "F8 is taken ($($binds['f8'])); join with: connect $addr" }
+    $lines += 'exec etto_net'
+    $net = @(($EttoNetHeader + " (interp ratio $ratio)."),
+             '// Server: 100 tick, ratio clamped to 1..2. Common infected are not lag compensated, so keep lerp low.',
+             'rate 100000', 'cl_updaterate 100', 'cl_cmdrate 100', 'cl_interp 0', "cl_interp_ratio $ratio", 'cl_lagcompensation 1') -join "`r`n"
+    $local = @('// Local games run at 30 tick: stock net settings while hosting (Etto''s server values come back with F8 / next launch).',
+               'rate 30000', 'cl_updaterate 30', 'cl_cmdrate 30', 'cl_interp_ratio 2', 'cl_interp 0.1')
+    $plan = [ordered]@{}
+    $plan[(Join-Path $cfgDir 'etto_net.cfg')] = $net + "`r`n"
+    foreach ($pair in @(@('autoexec.cfg', $lines), @('listenserver.cfg', $local))) {
+        $p = Join-Path $cfgDir $pair[0]
+        $old = if (Test-Path -LiteralPath $p) { $CfgEnc.GetString([IO.File]::ReadAllBytes($p)) } else { '' }
+        $base = (Remove-EttoBlockText $old).TrimEnd("`r", "`n")
+        $plan[$p] = ($(if ($base) { $base + "`r`n`r`n" } else { '' }) + $EttoBegin + "`r`n" + ($pair[1] -join "`r`n") + "`r`n" + $EttoEnd + "`r`n")
+    }
+    $keys = @(); if ($mouse5Fresh) { $keys += 'mouse5' }; if ($lines -match '^bind "F8"') { $keys += 'f8' }
+    return [pscustomobject]@{ files = $plan; ratio = $ratio; why = $why; notes = $notes; link = $link; keys = $keys }
+}
+function Get-ConfigChanges($cp) {
+    @($cp.files.Keys | Where-Object { -not (Test-Path -LiteralPath $_) -or $CfgEnc.GetString([IO.File]::ReadAllBytes($_)) -cne $cp.files[$_] })
+}
+function Write-ConfigPlan($cp, [string]$snapDir) {
+    foreach ($p in (Get-ConfigChanges $cp)) {
+        if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p (Join-Path $snapDir ('cfg_' + (Split-Path $p -Leaf))) -Force }
+        [IO.File]::WriteAllText($p, $cp.files[$p], $CfgEnc)
+        Say "  wrote $(Split-Path $p -Leaf)" 'Green'
+    }
+}
+# Restore: take our blocks out (whatever else changed in those files stays) and delete etto_net.cfg if it's ours.
+function Remove-EttoConfig([string]$cfgDir, [string[]]$keys) {
+    $c = Join-Path $cfgDir 'config.cfg'
+    if ($keys -and (Test-Path -LiteralPath $c)) {
+        $t = $CfgEnc.GetString([IO.File]::ReadAllBytes($c)); $u = $t
+        if ($keys -contains 'f8') { $u = [regex]::Replace($u, '(?im)^\s*bind\s+"F8"\s+"exec etto_net; connect [^"\r\n]*"[^\r\n]*\r?\n?', '') }
+        if ($keys -contains 'mouse5') { $u = [regex]::Replace($u, '(?im)^\s*bind\s+"MOUSE5"\s+"sm_mark"[^\r\n]*\r?\n?', '') }
+        if ($u -cne $t) { [IO.File]::WriteAllText($c, $u, $CfgEnc); Say '  removed the F8 / mouse5 binds Parity added from config.cfg' }
+    }
+    foreach ($n in 'autoexec.cfg', 'listenserver.cfg') {
+        $p = Join-Path $cfgDir $n
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        $t = $CfgEnc.GetString([IO.File]::ReadAllBytes($p)); $u = Remove-EttoBlockText $t
+        if ($u -ne $t) { $u = $u.TrimEnd("`r", "`n"); if ($u) { $u += "`r`n" } [IO.File]::WriteAllText($p, $u, $CfgEnc); Say "  removed Etto's block from $n" }
+    }
+    $n = Join-Path $cfgDir 'etto_net.cfg'
+    if ((Test-Path -LiteralPath $n) -and ($CfgEnc.GetString([IO.File]::ReadAllBytes($n))).StartsWith($EttoNetHeader)) { Remove-Item -LiteralPath $n -Force; Say '  removed etto_net.cfg' }
+}
+
 # ---- Steam session ----------------------------------------------------------------------------------------
 $rt = Join-Path $env:TEMP 'EttosPlayhouseSync'
 New-Item -ItemType Directory -Force -Path $rt | Out-Null
@@ -395,7 +522,8 @@ try {
                 if ($c.Count -ge 3 -and $c[0] -match '^[A-Za-z0-9_\-]+\.vpk\z' -and $c[1] -match '^[0-9a-f]{64}\z') { $lpRecs += [pscustomobject]@{ name = $c[0]; sha = $c[1]; replaced = ($c[2] -eq '1') } }
             }
         }
-        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})" 'Cyan'
+        $cfgMark = Join-Path $dir 'cfg_written.txt'; if (-not (Test-Path $cfgMark)) { $cfgMark = $null }
+        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})$(if ($cfgMark) {", remove Etto's game settings"})" 'Cyan'
         if ($DryRun) { Say 'Dry run - nothing changed.'; return }
         if (-not $Yes -and (Read-Host 'Proceed? (y/n)') -notmatch '^y') { return }
         Apply-Changes $add $remove
@@ -406,6 +534,7 @@ try {
             if ($r.replaced -and (Test-Path -LiteralPath $old)) { Copy-Item -LiteralPath $old $cur -Force; Say "  $($r.name): previous copy put back" }
             elseif ($ours) { Remove-Item -LiteralPath $cur -Force; Say "  $($r.name): removed" }
         }
+        if ($cfgMark) { Remove-EttoConfig $cfgDir @(Get-Content $cfgMark | Where-Object { $_ -in 'f8', 'mouse5' }) }
         $al = Join-Path $dir 'addonlist.txt'
         if (Test-Path $al) { Copy-Item $al $addonList -Force }
         Say "`nRestored. Launch Left 4 Dead 2 once so Steam re-downloads anything that was removed." 'Green'
@@ -504,8 +633,27 @@ try {
     }
     $lpWork = $lp -and ($lp.install.Count -gt 0 -or $lp.enable.Count -gt 0)
 
+    # ---- game config for Etto's server (Parity + hand-off folder only) ----
+    $cp = $null; $cfgWork = $false
+    if ($NoConfig -and -not $Parity) { Say "`n-NoConfig only applies to Parity.cmd (-Parity); ignored." 'Yellow' }
+    if ($Parity -and -not $NoConfig) {
+        $addr = Get-ServerAddress
+        if ($addr) {
+            Say "`nChecking your connection to Etto's server (10-25 s)..." 'Cyan'
+            $link = Test-ServerLink $addr
+            if ($link.ok) { Say ("  ping {0:N0} ms, jitter {1:N1} ms, lost {2}/{3}" -f $link.median, $link.jitter, $link.lost, $link.sent) }
+            else { Say "  The server didn't answer (is it up?). Using the safe settings." 'Yellow' }
+            $cp = Get-ConfigPlan $cfgDir $addr $link
+            $chg = @(Get-ConfigChanges $cp)
+            $cfgWork = $chg.Count -gt 0
+            Say "  Net settings: rate 100000, 100 updates/commands per second, interp ratio $($cp.ratio) ($($cp.why))."
+            foreach ($n in $cp.notes) { Say "  Note: $n" 'Yellow' }
+            if ($cfgWork) { Say "  Will WRITE: $(@($chg | ForEach-Object { Split-Path $_ -Leaf }) -join ', ')" 'Green' } else { Say '  Game config already up to date.' 'Green' }
+        }
+    }
+
     if ($DryRun) { Say "`nDry run - nothing changed."; return }
-    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork) { Say "`nNothing to do."; return }
+    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork -and -not $cfgWork) { Say "`nNothing to do."; return }
     if (-not $Yes) { if ((Read-Host "`nApply these changes? (y/n)") -notmatch '^y') { return } }
 
     # ---- snapshot, then apply ----
@@ -522,6 +670,15 @@ try {
     if ($lp -and $lp.install.Count -gt 0) {
         Say "`nInstalling Etto's local add-ons:" 'Cyan'
         [void](Install-LocalPack $lp $snapDir)
+    }
+    if ($cp) {
+        # marker first, so Restore can clean up even if a write below fails half-way
+        @('config') + @($cp.keys) | Set-Content (Join-Path $snapDir 'cfg_written.txt') -Encoding ASCII
+        if ($cfgWork) {
+            Say "`nWriting the game config:" 'Cyan'
+            try { Write-ConfigPlan $cp $snapDir }
+            catch { Say "  Couldn't write the game config ($($_.Exception.Message)). Everything else is done." 'Yellow' }
+        }
     }
     if ($lp) { Enable-LocalAddons @(@($lp.current) + @($lp.install) | ForEach-Object { $_.name } | Where-Object { Test-Path -LiteralPath (Join-Path $localDir $_) }) }
     Say "`naddonlist.txt updated: required items enabled." 'Green'

@@ -2,7 +2,7 @@
   "schema": 1,
   "name": "Etto's Playhouse",
   "updated": "2026-10-21",
-  "latestScript": 4,
+  "latestScript": 5,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
   "loadFirstAll": [

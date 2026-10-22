@@ -44,6 +44,24 @@ only lists their names, sizes and SHA-256s in `manifest.json` (`localPack`). Put
 `-LocalPack <path>`): Parity checks each file against its SHA-256, copies it into `left4dead2\addons\` and switches it on.
 Anything in the zip that isn't on the list is ignored. If a file is outdated, Parity says so; ask Etto for a fresh pack.
 
+### Game settings for Etto's server (Parity, Etto's hand-off folder only)
+
+When Etto's hand-off folder also holds `EttosPlayhouse_Server.txt` (the server address; it isn't in this repo), `Parity.cmd`
+sets your game up for that server. Skip it with `Parity.cmd -NoConfig`.
+
+- It checks your connection with 24 server-browser queries (10-25 seconds) and picks your interpolation from it.
+- `cfg\etto_net.cfg`: `rate 100000`, `cl_updaterate 100`, `cl_cmdrate 100`, `cl_interp 0`, and `cl_interp_ratio` 1, or 2
+  if your connection loses packets or is jittery. The server runs at 100 tick and allows ratio 1-2 (10-20 ms). Common
+  infected aren't lag compensated, so a low ratio is what keeps them hittable.
+- A marked block at the end of `cfg\autoexec.cfg`: the console on, the server's ping on mouse 5, **F8 joins the server**
+  (after loading `etto_net`), and `exec etto_net` at launch. Keys you've already bound to something else are left alone.
+- A marked block in `cfg\listenserver.cfg`: the game's stock settings whenever you host a local game (those run at 30
+  tick, where the server values feel wrong). If you then join the server some other way than F8 in the same session,
+  you keep the local values until you press F8 or restart the game.
+- `Restore.cmd` removes the blocks, `etto_net.cfg`, and the F8 / mouse 5 binds Parity added (the game also saves those in
+  `config.cfg`); your own lines stay as they are. Settings the game saved by itself (the console switch, 100 updates/commands
+  per second) stay until you change them in Options or the console.
+
 ### Load order (why the script re-subscribes things)
 
 Left 4 Dead 2 orders add-ons by **when you subscribed to them, newest first**. When two add-ons contain the same file, the
