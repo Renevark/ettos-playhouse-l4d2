@@ -37,7 +37,7 @@ param(
     [switch]$NoConfig
 )
 
-$ScriptVersion = 5
+$ScriptVersion = 6
 $ErrorActionPreference = 'Stop'
 
 # resolve file arguments against the current PowerShell location now: the 32-bit relaunch below and the Steam
@@ -404,6 +404,48 @@ function Remove-EttoBlockText([string]$t) {
     $pat = '(?s)(\r?\n)?' + [regex]::Escape($EttoBegin) + '(?:(?!' + [regex]::Escape($EttoBegin) + ').)*?' + [regex]::Escape($EttoEnd) + '[^\r\n]*(\r?\n)?'
     return [regex]::Replace($t, $pat, { param($mm) if ($mm.Groups[1].Success -and $mm.Groups[2].Success) { $mm.Groups[1].Value } else { '' } })
 }
+# Last value a cvar is set to in config.cfg, then autoexec.cfg outside our block (autoexec runs later, so it wins).
+function Get-CfgValue([string]$cfgDir, [string]$name) {
+    $val = $null
+    foreach ($n in 'config.cfg', 'autoexec.cfg') {
+        $p = Join-Path $cfgDir $n
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        $t = Remove-EttoBlockText ($CfgEnc.GetString([IO.File]::ReadAllBytes($p)))
+        $pat = '(?im)^[ \t]*"?' + [regex]::Escape($name) + '"?[ \t]+"?([0-9]+(?:\.[0-9]+)?)"?[ \t]*(?:;|//|\r?$)'
+        foreach ($mm in [regex]::Matches($t, $pat)) { $val = $mm.Groups[1].Value }
+    }
+    return $val
+}
+function Get-EttoBlockBody([string]$t) {
+    $mm = [regex]::Match($t, '(?s)' + [regex]::Escape($EttoBegin) + '((?:(?!' + [regex]::Escape($EttoBegin) + ').)*?)' + [regex]::Escape($EttoEnd))
+    if ($mm.Success) { return $mm.Groups[1].Value } else { return '' }
+}
+# Steam launch options for L4D2 that set +fps_max (they run after autoexec, so they win). Only the "550" { ... } app
+# block counts: the same id also appears earlier in the file as a ticket line.
+function Get-LaunchFpsMax {
+    try {
+        foreach ($f in Get-ChildItem (Join-Path $steamPath 'userdata\*\config\localconfig.vdf') -ErrorAction Stop) {
+            $t = [IO.File]::ReadAllText($f.FullName)
+            foreach ($b in [regex]::Matches($t, '"550"\s*\{(?>[^{}]+|\{(?<d>)|\}(?<-d>))*(?(d)(?!))\}')) {
+                $mm = [regex]::Match($b.Value, '"LaunchOptions"\s+"([^"]*)"')
+                if ($mm.Success -and $mm.Groups[1].Value -match '\+fps_max\s+"?([0-9]+(?:\.[0-9]+)?)') { return $Matches[1] }
+            }
+        }
+    } catch { }
+    return $null
+}
+# VSync caps the frame rate at the monitor's refresh rate whatever fps_max says. Returns the refresh rate when VSync
+# is on and the fastest active display runs below 100 Hz, else 0. (Advice only - nothing is changed.)
+function Get-VsyncCap([string]$cfgDir) {
+    try {
+        $v = Join-Path $cfgDir 'video.txt'
+        if (-not (Test-Path -LiteralPath $v)) { return 0 }
+        if ([IO.File]::ReadAllText($v) -notmatch '"setting\.mat_vsync"\s*"1"') { return 0 }
+        $hz = @(Get-CimInstance Win32_VideoController -OperationTimeoutSec 5 -ErrorAction Stop | ForEach-Object { [int]$_.CurrentRefreshRate } | Where-Object { $_ -gt 0 } | Sort-Object -Descending)
+        if ($hz.Count -and $hz[0] -lt 100) { return $hz[0] }
+    } catch { }
+    return 0
+}
 # Desired file contents; returns @{ path = content } (content $null = leave alone).
 function Get-ConfigPlan([string]$cfgDir, [string]$addr, $link) {
     # The server answers browser queries once per server frame (10 ms at 100 tick), so a clean line already shows
@@ -418,6 +460,20 @@ function Get-ConfigPlan([string]$cfgDir, [string]$addr, $link) {
     if ($mouse5Fresh -or $binds['mouse5'] -eq 'sm_mark') { $lines += 'bind "MOUSE5" "sm_mark"' } else { $notes += "mouse5 is taken ($($binds['mouse5'])), so the ping is on !mark only" }
     $join = "exec etto_net; connect $addr"
     if (-not $binds.ContainsKey('f8') -or $binds['f8'] -like 'exec etto_net; connect *') { $lines += "bind `"F8`" `"$join`"" } else { $notes += "F8 is taken ($($binds['f8'])); join with: connect $addr" }
+    # fps_max: the game sends at most one command packet per frame, so below 100 fps cl_cmdrate 100 can't be met.
+    $autoPath = Join-Path $cfgDir 'autoexec.cfg'
+    $oldBlock = if (Test-Path -LiteralPath $autoPath) { Get-EttoBlockBody ($CfgEnc.GetString([IO.File]::ReadAllBytes($autoPath))) } else { '' }
+    # The game doesn't save fps_max to config.cfg, so the user's value always comes from their own cfg lines (or a
+    # launch option); re-read it every run so a later change of theirs (say to 144) is respected.
+    $fps = Get-CfgValue $cfgDir 'fps_max'
+    if ($fps -and [double]$fps -gt 0 -and [double]$fps -lt 100) {
+        $lines += "// your fps_max $fps is raised to 100 here (removing this block puts yours back)"; $lines += 'fps_max 100'
+        if ($oldBlock -notmatch '(?m)^fps_max 100') { $notes += "fps_max was $fps - raising it to 100 so you can send all 100 commands a second" }
+    }
+    $lfps = Get-LaunchFpsMax
+    if ($lfps -and [double]$lfps -gt 0 -and [double]$lfps -lt 100) { $notes += "Your Steam launch options set +fps_max $lfps, which overrides this. Remove it there (Library > Left 4 Dead 2 > Properties) for the full 100." }
+    $cap = Get-VsyncCap $cfgDir
+    if ($cap) { $notes += "VSync is on and your monitor runs at $cap Hz, so the game is capped at $cap fps ($cap commands a second). Turning VSync off (Options > Video) lets it reach the full 100." }
     $lines += 'exec etto_net'
     $net = @(($EttoNetHeader + " (interp ratio $ratio)."),
              '// Server: 100 tick, ratio clamped to 1..2. Common infected are not lag compensated, so keep lerp low.',

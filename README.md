@@ -55,6 +55,10 @@ sets your game up for that server. Skip it with `Parity.cmd -NoConfig`.
   infected aren't lag compensated, so a low ratio is what keeps them hittable.
 - A marked block at the end of `cfg\autoexec.cfg`: the console on, the server's ping on mouse 5, **F8 joins the server**
   (after loading `etto_net`), and `exec etto_net` at launch. Keys you've already bound to something else are left alone.
+- Frame rate: the game sends at most one command per frame, so 100 commands a second need 100 fps. If your own cfg
+  files set `fps_max` between 1 and 99, the block raises it to 100 (0 = unlimited and 100+ are left alone; removing the
+  block puts yours back). Parity warns you, without changing anything, when Steam launch options set `+fps_max` below
+  100 (those run later and win) or when VSync is on with a monitor below 100 Hz.
 - A marked block in `cfg\listenserver.cfg`: the game's stock settings whenever you host a local game (those run at 30
   tick, where the server values feel wrong). If you then join the server some other way than F8 in the same session,
   you keep the local values until you press F8 or restart the game.
