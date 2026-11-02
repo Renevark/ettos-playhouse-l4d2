@@ -1,14 +1,15 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-10-21",
-  "latestScript": 6,
+  "updated": "2026-11-01",
+  "latestScript": 7,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
   "loadFirstAll": [
     "3818862657",
     "3823176475"
   ],
+  "heapsizeKB": 327680,
   "required": [
     {
       "id": "3818862657",
@@ -205,6 +206,114 @@
     {
       "id": "3564279976",
       "label": "Vltava (813 MB: subscribe with the game closed)"
+    },
+    {
+      "id": "3548197323",
+      "label": "Custom Infected: Goon (server spawns it)"
+    },
+    {
+      "id": "3553148509",
+      "label": "Custom Infected: Toad (server spawns it)"
+    },
+    {
+      "id": "3567890283",
+      "label": "Custom Infected: Crimson Head (server spawns it)"
+    },
+    {
+      "id": "3568153876",
+      "label": "Custom Infected: Fast Headcrab (server spawns it)"
+    },
+    {
+      "id": "3569502432",
+      "label": "Custom Infected: Lepotitsa (server spawns it)"
+    },
+    {
+      "id": "3574717818",
+      "label": "Custom Infected: Ogroman (server spawns it)"
+    },
+    {
+      "id": "3575706604",
+      "label": "Custom Infected: Cultist Smoker (server spawns it)"
+    },
+    {
+      "id": "3576635739",
+      "label": "Custom Infected: Cultist Hunter (server spawns it)"
+    },
+    {
+      "id": "3585669921",
+      "label": "Custom Infected: Pale Head (server spawns it)"
+    },
+    {
+      "id": "3589125897",
+      "label": "Custom Infected: Fast Headcrab Zombie (server spawns it)"
+    },
+    {
+      "id": "3596997350",
+      "label": "Custom Infected: Bomber (server spawns it)"
+    },
+    {
+      "id": "3629173023",
+      "label": "Custom Infected: Corpse Eater (server spawns it)"
+    },
+    {
+      "id": "3629705788",
+      "label": "Custom Infected: Prisoner (server spawns it)"
+    },
+    {
+      "id": "3630456597",
+      "label": "Custom Infected: Kamikaze (server spawns it)"
+    },
+    {
+      "id": "3631206520",
+      "label": "Custom Infected: Park Ranger (server spawns it)"
+    },
+    {
+      "id": "3634402166",
+      "label": "Custom Infected: Paramedic (server spawns it)"
+    },
+    {
+      "id": "3636716491",
+      "label": "Custom Infected: Sewer Worker (server spawns it)"
+    },
+    {
+      "id": "3642724712",
+      "label": "Custom Infected: Scientist (server spawns it)"
+    },
+    {
+      "id": "3645751720",
+      "label": "Custom Infected: The Hag (server spawns it)"
+    },
+    {
+      "id": "3647632584",
+      "label": "Custom Infected: The Retch (server spawns it)"
+    },
+    {
+      "id": "3662316981",
+      "label": "Custom Infected: Cultist (server spawns it)"
+    },
+    {
+      "id": "3691946879",
+      "label": "Custom Infected: The Lobber (server spawns it)"
+    },
+    {
+      "id": "3693180271",
+      "label": "Custom Infected: Arsonist (server spawns it)"
+    },
+    {
+      "id": "3698435562",
+      "label": "Custom Infected: Spin Diver (server spawns it)"
+    },
+    {
+      "id": "3699261488",
+      "label": "Custom Infected: Security Guard (server spawns it)"
+    },
+    {
+      "id": "3701037197",
+      "label": "Custom Infected: The Shambler (server spawns it)"
+    },
+    {
+      "id": "3701168807",
+      "label": "Custom Infected: Soldier (server spawns it)"
     }
   ],
   "recommended": [
@@ -265,9 +374,10 @@
     }
   ],
   "notes": [
-    "Parity.cmd (sync script v4+) also installs Etto's local add-ons (HD Lighting dimming, lighter textures, ekgHUD patch) from EttosPlayhouse_LocalPack.zip, which Etto hands out personally. Put it next to Parity.cmd.",
+    "Parity.cmd (sync script v4+) also installs Etto's local add-ons (HD Lighting dimming, lighter gun textures, texture caps that keep big maps under the 4 GB memory limit, ekgHUD patch) from EttosPlayhouse_LocalPack.zip, which Etto hands out personally. Put it next to Parity.cmd.",
     "ekgHUD users: the ekgHUD compatibility patch (so the server's survivor table shows up) comes in Etto's local pack; ask Etto for it.",
-    "Big campaigns (e.g. Vltava, 813 MB): subscribe or sync with Left 4 Dead 2 CLOSED. The game downloads a Workshop item into one memory buffer the size of the whole file, so subscribing to a big one mid-game can crash it with OUT OF MEMORY."
+    "Big campaigns (e.g. Vltava, 813 MB): subscribe or sync with Left 4 Dead 2 CLOSED. The game downloads a Workshop item into one memory buffer the size of the whole file, so subscribing to a big one mid-game can crash it with OUT OF MEMORY.",
+    "Big custom maps need a lot of memory. Parity.cmd with Etto's local pack installs texture caps that keep the 32-bit game under its 4 GB limit; without them, heavy maps can crash while loading."
   ],
   "parity": [
     {
@@ -594,6 +704,33 @@
   "loadOrder": [
     "3818862657",
     "3823176475",
+    "3642724712",
+    "3691946879",
+    "3569502432",
+    "3576635739",
+    "3647632584",
+    "3575706604",
+    "3629705788",
+    "3698435562",
+    "3634402166",
+    "3636716491",
+    "3631206520",
+    "3662316981",
+    "3629173023",
+    "3701168807",
+    "3701037197",
+    "3645751720",
+    "3596997350",
+    "3574717818",
+    "3699261488",
+    "3589125897",
+    "3585669921",
+    "3693180271",
+    "3630456597",
+    "3567890283",
+    "3553148509",
+    "3568153876",
+    "3548197323",
     "3564279976",
     "2913269280",
     "2762822156",
@@ -708,7 +845,7 @@
   ],
   "localPack": {
     "zip": "EttosPlayhouse_LocalPack.zip",
-    "updated": "2026-10-21",
+    "updated": "2026-11-01",
     "files": [
       {
         "name": "etto_glowdim.vpk",
@@ -718,15 +855,21 @@
       },
       {
         "name": "etto_lite.vpk",
-        "label": "Lighter textures for 20 gun/skin packs (saves ~300 MB of game memory)",
-        "bytes": 90601159,
-        "sha256": "721c03b84347d7e9c18f56fce63008ac6f4ac7309e378194b0644577730a8f32"
+        "label": "Lighter textures for 23 gun/skin packs, capped at 1024 (saves ~500 MB of game memory)",
+        "bytes": 110861724,
+        "sha256": "9b9ca0e6a595c7ea0cb0a7a062f8d36de0d47799b1eddebaeb71b585d396142b"
       },
       {
         "name": "ekghud_scripthud.vpk",
         "label": "ekgHUD compatibility patch (the server's survivor table)",
         "bytes": 10310951,
         "sha256": "5807ae21956f58cbf895d32e100b493888128eff816251641c9e41d9c8123c73"
+      },
+      {
+        "name": "etto_lite_ci.vpk",
+        "label": "Smaller textures for the custom infected, campaigns, survivors and Valve's models (keeps the game under its 4 GB limit)",
+        "bytes": 435867824,
+        "sha256": "687a47ac86a5b2c4aee5cacf0fbe2798db7ebd5f4ae9f79bd66f916cdb2dd011"
       }
     ]
   }

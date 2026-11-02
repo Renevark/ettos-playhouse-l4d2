@@ -4,7 +4,8 @@
 
   Modes
     (default)  Standard: subscribe required items, unsubscribe retired / known-bad items, put the load-first
-               item at the top of addonlist.txt, enable required items. Nothing else is touched.
+               item at the top of addonlist.txt, enable required items, and (v7) add the -heapsize launch option
+               described below. Nothing else is touched.
     -Parity    Also subscribe Etto's full client setup (the manifest's optional "parity" list) and copy its
                load order, so your game looks and sounds like Etto's. Combine with -Strict for an exact mirror.
     -Strict    Make subscriptions match the manifest exactly (required + recommended, + parity with -Parity).
@@ -20,6 +21,12 @@
                blocks in cfg\autoexec.cfg (console, ping on mouse5, F8 = join) and cfg\listenserver.cfg (stock values
                for local games). Keys that are already bound are left alone. Restore.cmd takes it all out again.
 
+  Launch option (v7, all modes): when the manifest sets heapsizeKB, the script makes sure Left 4 Dead 2's Steam launch
+  options contain -heapsize <KB> (a bigger model/sound cache; without it sound cuts in and out on big maps on Etto's
+  server). Steam rewrites its settings when it exits, so the script closes Steam for a moment, edits the launch options
+  of the logged-in account, and starts Steam again. Restore.cmd takes the option out again (Restore undoes the latest
+  snapshot; use -Backup <folder> for an older run). -NoLaunchOption leaves the launch options alone.
+
   It uses the steam_api.dll that ships with your own Left 4 Dead 2 install to talk to your running Steam
   client - the same calls the Workshop "Subscribe" button makes. The manifest is data only (Workshop IDs and
   labels); nothing downloaded from it is ever executed.
@@ -34,10 +41,11 @@ param(
     [string]$ManifestUrl = 'https://raw.githubusercontent.com/Renevark/ettos-playhouse-l4d2/main/manifest.json',
     [string]$ManifestFile,
     [string]$LocalPack,
-    [switch]$NoConfig
+    [switch]$NoConfig,
+    [switch]$NoLaunchOption
 )
 
-$ScriptVersion = 6
+$ScriptVersion = 7
 $ErrorActionPreference = 'Stop'
 
 # resolve file arguments against the current PowerShell location now: the 32-bit relaunch below and the Steam
@@ -197,6 +205,7 @@ function Get-Manifest {
     if ($m.loadFirst -and "$($m.loadFirst)" -notmatch '^\d{6,12}$') { Fail 'Manifest loadFirst is not a Workshop id.' }
     foreach ($o in @($m.loadFirstAll)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadFirstAll has an invalid Workshop id '$o'." } }
     foreach ($o in @($m.loadOrder)) { if ($o -and "$o" -notmatch '^\d{6,12}$') { Fail "Manifest loadOrder has an invalid Workshop id '$o'." } }
+    if ($null -ne $m.heapsizeKB -and "$($m.heapsizeKB)" -notmatch '^\d{1,7}\z') { Fail 'Manifest heapsizeKB is not a number.' }
     foreach ($f in @($m.localPack.files)) {
         if ($null -eq $f) { continue }
         if ("$($f.name)" -notmatch '^[A-Za-z0-9_\-]+\.vpk\z') { Fail "Manifest localPack has an invalid file name '$($f.name)'." }
@@ -434,6 +443,140 @@ function Get-LaunchFpsMax {
     } catch { }
     return $null
 }
+# ---- Steam launch option -heapsize (script v7) ----
+# The engine keeps model meshes and sounds in one cache, 256 MB by default. On Etto's server every model is preloaded
+# and locked in it, so on big maps sounds get pushed out and cut in and out. -heapsize <KB> raises that budget
+# (engine.dll reads it once at start, no clamp). Steam rewrites localconfig.vdf when it exits, so it can only be edited
+# with Steam closed: the script closes Steam, edits the "550" app block of the logged-in account, and starts Steam again.
+$VdfBlock = '\{(?>"(?:[^"\\]|\\.)*"|[^{}"]+|\{(?<d>)|\}(?<-d>))*(?(d)(?!))\}'   # quoted strings may hold { }
+function Get-ActiveUserConfig {
+    $id = (Get-ItemProperty 'HKCU:\Software\Valve\Steam\ActiveProcess' -ErrorAction SilentlyContinue).ActiveUser
+    if ($id -and [int64]$id -ne 0) {
+        $p = Join-Path $steamPath "userdata\$id\config\localconfig.vdf"
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+    return $null
+}
+# "<key>" { ... } that is a direct child of the block whose text is $t (depth 0 = file root), as @{ start; len; text }
+function Find-ChildBlock([string]$t, [string]$key, [int]$at) {
+    $depth = 0
+    foreach ($mm in [regex]::Matches($t, '"(?:[^"\\]|\\.)*"|[{}]')) {
+        if ($mm.Value -eq '{') { $depth++ }
+        elseif ($mm.Value -eq '}') { $depth--; if ($depth -lt $at) { break } }
+        elseif ($depth -eq $at -and $mm.Value -ieq ('"' + $key + '"')) {
+            $b = [regex]::Match($t.Substring($mm.Index), '\A"[^"]*"\s*' + $VdfBlock)
+            if ($b.Success) { return @{ start = $mm.Index; len = $b.Length; text = $b.Value } }
+        }
+    }
+    return $null
+}
+# UserLocalConfigStore > Software > Valve > Steam > apps > 550, one direct child at a time (keys compared ignoring case:
+# Steam writes "valve"). The file also has 550 blocks for depots and controller config; only this one holds LaunchOptions.
+function Find-AppBlock([string]$t) {
+    $off = 0; $txt = $t; $at = 0
+    foreach ($k in 'UserLocalConfigStore', 'Software', 'Valve', 'Steam', 'apps', '550') {
+        $c = Find-ChildBlock $txt $k $at
+        if (-not $c) { return $null }
+        $off += $c.start; $txt = $c.text; $at = 1
+    }
+    return @{ start = $off; len = $txt.Length; text = $txt }
+}
+# The "LaunchOptions" "value" pair that is a direct key of the app block text $b (not one nested in a sub-block), as a
+# regex Match (Groups[1] = the spacing between key and value, Groups[2] = the value), or $null.
+$LoPair = New-Object regex '\G"LaunchOptions"(\s+)"((?:[^"\\]|\\.)*)"', 'IgnoreCase'
+function Find-LaunchOptionsPair([string]$b) {
+    $depth = 0
+    foreach ($tk in [regex]::Matches($b, '"(?:[^"\\]|\\.)*"|[{}]')) {
+        if ($tk.Value -eq '{') { $depth++ }
+        elseif ($tk.Value -eq '}') { $depth-- }
+        elseif ($depth -eq 1 -and $tk.Value -ieq '"LaunchOptions"') {
+            $mm = $LoPair.Match($b, $tk.Index)
+            if ($mm.Success) { return $mm }
+        }
+    }
+    return $null
+}
+# The LaunchOptions value ('' when there is none), or $null when the file or the game's app block can't be read.
+function Get-LaunchOptionsText([string]$path) {
+    try {
+        $blk = Find-AppBlock ([IO.File]::ReadAllText($path))
+        if (-not $blk) { return $null }
+        $mm = Find-LaunchOptionsPair $blk.text
+        if ($mm) { return $mm.Groups[2].Value } else { return '' }
+    } catch { return $null }
+}
+# Returns the edited file text ($t unchanged when nothing to do), or $null when the app block can't be found.
+function Edit-LaunchOptions([string]$t, [string]$token, [bool]$add) {
+    $blk = Find-AppBlock $t
+    if (-not $blk) { return $null }
+    $b = $blk.text
+    $mm = Find-LaunchOptionsPair $b
+    $flag = ($token -split '\s+')[0]
+    if ($add) {
+        if ($mm) {
+            if ($mm.Groups[2].Value -match ('(^|\s)' + [regex]::Escape($flag) + '(\s|=|$)')) { return $t }
+            $nv = ($mm.Groups[2].Value.Trim() + ' ' + $token).Trim()
+            $nb = $b.Substring(0, $mm.Index) + '"LaunchOptions"' + $mm.Groups[1].Value + '"' + $nv + '"' + $b.Substring($mm.Index + $mm.Length)
+        } else {
+            $ob = $b.IndexOf('{')
+            $ind = [regex]::Match($b, '\{\r?\n(\t*)"').Groups[1].Value
+            if (-not $ind) { $ind = "`t`t`t`t`t`t" }
+            $nl = if ($b.Contains("`r`n")) { "`r`n" } else { "`n" }
+            $nb = $b.Substring(0, $ob + 1) + $nl + $ind + '"LaunchOptions"' + "`t`t" + '"' + $token + '"' + $b.Substring($ob + 1)
+        }
+    } else {
+        if (-not $mm) { return $t }
+        $old = $mm.Groups[2].Value
+        $nv = [regex]::Replace($old, '(^|\s+)' + [regex]::Escape($token) + '(?=\s|$)', '').Trim()   # the player's own spacing stays
+        if ($nv -ceq $old) { return $t }
+        $nb = $b.Substring(0, $mm.Index) + '"LaunchOptions"' + $mm.Groups[1].Value + '"' + $nv + '"' + $b.Substring($mm.Index + $mm.Length)
+    }
+    return $t.Substring(0, $blk.start) + $nb + $t.Substring($blk.start + $blk.len)
+}
+# Close Steam (after this script has let go of it), edit the launch options, start Steam again. $true when done.
+function Set-HeapsizeOption([string]$path, [string]$token, [bool]$add) {
+    $done = $false
+    $steamExe = Join-Path $steamPath 'steam.exe'
+    if (-not (Test-Path -LiteralPath $steamExe)) { Say "  steam.exe not found in $steamPath." 'Yellow'; return $false }
+    if (-not $script:SteamApiDown) {
+        # let the last subscribe / re-subscribe calls settle with Steam before it closes
+        for ($i = 0; $i -lt 12; $i++) { [EttoSteam]::SteamAPI_RunCallbacks(); Start-Sleep -Milliseconds 250 }
+        [EttoSteam]::SteamAPI_Shutdown(); $script:SteamApiDown = $true
+    }
+    try {
+        Say '  closing Steam for a moment (keep this window open)...'
+        Start-Process -FilePath $steamExe -ArgumentList '-shutdown'
+        $deadline = (Get-Date).AddSeconds(120)
+        while ((Get-Process steam -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+        if (Get-Process steam -ErrorAction SilentlyContinue) { Say '  Steam did not close within 2 minutes (if it closes later, start it again yourself).' 'Yellow'; return $false }
+        Start-Sleep -Seconds 2
+        $t = [IO.File]::ReadAllText($path)
+        $u = Edit-LaunchOptions $t $token $add
+        if ($null -ne $u) {
+            if ($u -cne $t) {
+                # write a temp file, then swap it in: a failed write never leaves a cut-off localconfig.vdf
+                $tmp = "$path.etto-tmp"
+                [IO.File]::WriteAllText($tmp, $u, (New-Object Text.UTF8Encoding $false))
+                [IO.File]::Replace($tmp, $path, $null)
+            }
+            $done = $true
+        }
+    } catch { Say "  couldn't edit $path ($($_.Exception.Message))" 'Yellow' }
+    finally {
+        if (-not (Get-Process steam -ErrorAction SilentlyContinue)) {
+            Say '  starting Steam again (it may ask you to log in)...'
+            # not as "game 550" from this script's temp folder: a clean Steam start
+            Remove-Item Env:SteamAppId, Env:SteamGameId -ErrorAction SilentlyContinue
+            Start-Process -FilePath $steamExe -WorkingDirectory $steamPath
+        }
+    }
+    return $done
+}
+function Show-HeapsizeManual([string]$token) {
+    if (-not $DryRun) { try { Set-Clipboard -Value $token } catch { } }
+    Say "  Please add it yourself$(if (-not $DryRun) {" (it's on your clipboard)"}): Steam > Library > right-click Left 4 Dead 2 > Properties >" 'Yellow'
+    Say "  General > Launch Options, add:  $token" 'Yellow'
+}
 # VSync caps the frame rate at the monitor's refresh rate whatever fps_max says. Returns the refresh rate when VSync
 # is on and the fastest active display runs below 100 Hz, else 0. (Advice only - nothing is changed.)
 function Get-VsyncCap([string]$cfgDir) {
@@ -579,7 +722,15 @@ try {
             }
         }
         $cfgMark = Join-Path $dir 'cfg_written.txt'; if (-not (Test-Path $cfgMark)) { $cfgMark = $null }
-        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})$(if ($cfgMark) {", remove Etto's game settings"})" 'Cyan'
+        $heapRec = $null
+        $hf = Join-Path $dir 'heapsize_added.txt'
+        if (Test-Path $hf) {
+            $c = "$(Get-Content $hf -TotalCount 1)" -split "`t"
+            # only when our exact token is still there (not after a second Restore or a manual removal)
+            if ($c.Count -ge 2 -and $c[0] -match 'localconfig\.vdf\z' -and $c[1] -match '^-heapsize [0-9]+\z' -and (Test-Path -LiteralPath $c[0]) -and
+                "$(Get-LaunchOptionsText $c[0])" -match ('(^|\s)' + [regex]::Escape($c[1]) + '(\s|$)')) { $heapRec = [pscustomobject]@{ path = $c[0]; token = $c[1] } }
+        }
+        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})$(if ($cfgMark) {", remove Etto's game settings"})$(if ($heapRec) {", remove the launch option $($heapRec.token) (Steam closes for a moment)"})" 'Cyan'
         if ($DryRun) { Say 'Dry run - nothing changed.'; return }
         if (-not $Yes -and (Read-Host 'Proceed? (y/n)') -notmatch '^y') { return }
         Apply-Changes $add $remove
@@ -593,6 +744,10 @@ try {
         if ($cfgMark) { Remove-EttoConfig $cfgDir @(Get-Content $cfgMark | Where-Object { $_ -in 'f8', 'mouse5' }) }
         $al = Join-Path $dir 'addonlist.txt'
         if (Test-Path $al) { Copy-Item $al $addonList -Force }
+        if ($heapRec) {
+            if (Set-HeapsizeOption $heapRec.path $heapRec.token $false) { Say "  removed $($heapRec.token) from Left 4 Dead 2's launch options." }
+            else { Say "  Couldn't edit the launch options; remove $($heapRec.token) yourself (Left 4 Dead 2 > Properties > Launch Options)." 'Yellow' }
+        }
         Say "`nRestored. Launch Left 4 Dead 2 once so Steam re-downloads anything that was removed." 'Green'
         return
     }
@@ -708,8 +863,25 @@ try {
         }
     }
 
+    # ---- Steam launch option -heapsize (all modes; the manifest's heapsizeKB) ----
+    $heapTok = $null; $heapCfg = $null; $heapWork = $false
+    if ($m.heapsizeKB -and [int]$m.heapsizeKB -gt 0 -and $NoLaunchOption) { Say "`nLaunch option: -NoLaunchOption given, -heapsize left alone." 'DarkCyan' }
+    elseif ($m.heapsizeKB -and [int]$m.heapsizeKB -gt 0) {
+        $heapTok = "-heapsize $([int]$m.heapsizeKB)"
+        $heapCfg = Get-ActiveUserConfig
+        $lo = if ($heapCfg) { Get-LaunchOptionsText $heapCfg } else { $null }
+        if ($null -eq $lo) {
+            Say "`nLaunch option: couldn't find Left 4 Dead 2 in your Steam settings (launch the game once, then run this again)." 'Yellow'; Show-HeapsizeManual $heapTok
+        } elseif ($lo -match '(^|\s)-heapsize(\s|=|$)') {
+            Say "`nLaunch options: -heapsize already set." 'Green'
+        } else {
+            $heapWork = $true
+            Say "`nWill ADD the Steam launch option $heapTok for Left 4 Dead 2 (a bigger model/sound cache, so sound doesn't cut out on big maps). Steam closes for a moment to save it and starts again." 'Green'
+        }
+    }
+
     if ($DryRun) { Say "`nDry run - nothing changed."; return }
-    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork -and -not $cfgWork) { Say "`nNothing to do."; return }
+    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork -and -not $cfgWork -and -not $heapWork) { Say "`nNothing to do."; return }
     if (-not $Yes) { if ((Read-Host "`nApply these changes? (y/n)") -notmatch '^y') { return } }
 
     # ---- snapshot, then apply ----
@@ -738,6 +910,15 @@ try {
     }
     if ($lp) { Enable-LocalAddons @(@($lp.current) + @($lp.install) | ForEach-Object { $_.name } | Where-Object { Test-Path -LiteralPath (Join-Path $localDir $_) }) }
     Say "`naddonlist.txt updated: required items enabled." 'Green'
+    # before the "Done" lines: a player who starts the game while Steam is still closing would lose the edit
+    if ($heapWork) {
+        Say "`nSetting the Steam launch option ${heapTok}:" 'Cyan'
+        # record first, so Restore can take it out again even if Steam's restart goes wrong
+        Copy-Item -LiteralPath $heapCfg (Join-Path $snapDir 'localconfig.vdf') -Force
+        "$heapCfg`t$heapTok" | Set-Content (Join-Path $snapDir 'heapsize_added.txt') -Encoding UTF8
+        if (Set-HeapsizeOption $heapCfg $heapTok $true) { Say "  added $heapTok to Left 4 Dead 2's launch options." 'Green' }
+        else { Remove-Item (Join-Path $snapDir 'heapsize_added.txt') -ErrorAction SilentlyContinue; Show-HeapsizeManual $heapTok }
+    }
     # L4D2 (legacy Workshop) downloads new items itself when it starts, and may re-order addonlist.txt.
     $notDownloaded = @($want | Where-Object { -not (Test-Path (Join-Path $addonsDir "$_.vpk")) })
     if ($notDownloaded.Count -gt 0) {
@@ -749,5 +930,5 @@ try {
     }
 }
 finally {
-    [EttoSteam]::SteamAPI_Shutdown()
+    if (-not $script:SteamApiDown) { [EttoSteam]::SteamAPI_Shutdown() }
 }

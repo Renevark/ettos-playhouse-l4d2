@@ -6,7 +6,9 @@ survivor-set fix, and none of the add-ons known to crash on it.
 ## Use
 
 1. Start Steam. **Close Left 4 Dead 2.**
-2. Double-click **`Sync.cmd`**. Review the list it prints, then answer `y`.
+2. Double-click **`Sync.cmd`**. Review the list it prints, then answer `y`. The first run of script v7 also closes Steam for
+   a moment to add a launch option (see below) and starts it again; **keep the window open until it says Done**. Steam may
+   ask you to log in again.
 3. If it says add-ons still need downloading: launch Left 4 Dead 2 and **wait at the main menu until the add-on downloads finish**
    (Left 4 Dead 2 downloads Workshop items itself when it starts), then quit.
    Don't subscribe to big add-ons while you're in a game: the game loads the whole download into memory at once, and a large
@@ -21,7 +23,14 @@ unless it tells you one is available.
 - **Subscribes** to every add-on the server requires that you're missing.
 - **Unsubscribes** only add-ons this list names: retired items (replaced by something newer) and known crash-causers. It shows each one with the reason.
 - Puts the **Survivor Set Patch** first in your add-on load order (by re-subscribing it, see below) and switches on the required add-ons.
-- **Doesn't touch anything else you're subscribed to.** It only *warns* (doesn't remove) if one of your other add-ons:
+- The required add-ons include 27 **custom infected** (about 840 MB to download the first time). Their scripts also spawn
+  them in your own local and hosted games, and a few of them restyle how all common infected look.
+- Adds **`-heapsize 327680`** to Left 4 Dead 2's Steam launch options (script v7). The game keeps model meshes and sounds in
+  one cache, 256 MB by default; on Etto's server every model is loaded up front, so on big maps sounds get pushed out and cut
+  in and out. This raises the cache to 320 MB. Steam rewrites its settings when it exits, so the script closes Steam, edits
+  only the `LaunchOptions` of Left 4 Dead 2 (app 550) in `Steam\userdata\<your id>\config\localconfig.vdf`, and starts Steam
+  again. Skip it with `-NoLaunchOption`. If it can't (Steam won't close, say), it tells you how to add it yourself.
+- **Doesn't touch any other add-on you're subscribed to.** It only *warns* (doesn't remove) if one of your other add-ons:
   - replaces survivor animations (the kind of mod that crashed players here), or
   - overrides one of the server's campaign mission files, or
   - contains maps the server already gets from another add-on.
@@ -34,12 +43,16 @@ unless it tells you one is available.
 | `Sync.cmd -Strict` | Makes your subscriptions match this list **exactly** (required + recommended). Use it if you keep crashing. |
 | **`Parity.cmd`** | **Optional:** also installs Etto's own client setup (weapons, sounds, textures, survivor models; about 2 GB) **in the exact same load order**, so your game looks and sounds the same as Etto's. Doesn't remove anything of yours. With Etto's local pack next to it, it also installs Etto's non-Workshop tweaks (see below); a same-named file already in `addons\` is replaced (the old copy goes into the snapshot). |
 | `Parity.cmd -Strict` | An exact mirror of Etto's setup: everything not in it is unsubscribed (snapshot first; `Restore.cmd` undoes it). |
-| `Restore.cmd` | Undoes the most recent sync: resubscribes what it removed, restores your `addonlist.txt` and takes back any local-pack files it installed |
+| `Restore.cmd` | Undoes the most recent sync: resubscribes what it removed, restores your `addonlist.txt`, takes back any local-pack files it installed and the game settings it wrote, and removes the `-heapsize` launch option if that run added it (closing Steam for a moment). It only undoes the latest snapshot: to undo an older run use `Restore.cmd -Backup <folder>`. After a Restore, run `Sync.cmd -NoLaunchOption` if you don't want the launch option back. |
 
 ### Etto's local pack (Parity only)
 
 A few of Etto's tweaks aren't on the Workshop because they're modified copies of other people's add-ons (dimmer HD Lighting
-glows, lighter gun/skin textures, the ekgHUD patch). Etto hands them out personally as `EttosPlayhouse_LocalPack.zip`; this repo
+glows, lighter gun/skin textures, the ekgHUD patch, and `etto_lite_ci.vpk`: smaller copies of the custom infected,
+campaign, survivor and Valve model textures). Left 4 Dead 2 is a 32-bit game that can only use 4 GB of memory, and with
+the custom infected the full-size textures don't fit on big maps, which then crash while loading; these capped textures
+are what keep it under the limit. They are made for Etto's exact add-on set, which is why they come with Parity.
+The pack zip is about 580 MB. Etto hands them out personally as `EttosPlayhouse_LocalPack.zip`; this repo
 only lists their names, sizes and SHA-256s in `manifest.json` (`localPack`). Put the zip next to `Parity.cmd` (or pass
 `-LocalPack <path>`): Parity checks each file against its SHA-256, copies it into `left4dead2\addons\` and switches it on.
 Anything in the zip that isn't on the list is ignored. If a file is outdated, Parity says so; ask Etto for a fresh pack.
@@ -74,7 +87,9 @@ To put the Survivor Set Patch on top, or to reproduce Etto's order in `Parity.cm
 re-subscribes add-ons one at a time in the right sequence. Nothing is re-downloaded, and the new order applies at your next launch.
 
 Every run that changes something first saves a snapshot to `Documents\EttosPlayhouse\backups\`. `Restore.cmd -Backup <folder>`
-restores an older one. Anything that was removed is downloaded again the next time you launch the game.
+restores an older one. Anything that was removed is downloaded again the next time you launch the game. When a run adds the
+launch option, its snapshot also keeps a copy of your `localconfig.vdf` (your personal Steam settings), so don't share
+your backups folder.
 
 ## How it works
 
@@ -127,5 +142,7 @@ Edit `manifest.json`:
   non-Workshop add-ons. `gen_parity.py` refreshes `bytes`/`sha256` from Etto's `addons` folder. Push the manifest
   **before** handing out a new pack zip: friends' `Parity.cmd` checks the zip against the published list.
 - `latestScript`: bump it when `EttoSync.ps1` changes, so older copies tell players to update.
+- `heapsizeKB` (script v7+): the `-heapsize` value in KB the script makes sure is in Left 4 Dead 2's Steam launch options
+  (327680 = 320 MB). Remove the key to stop adding it.
 
 GitHub caches raw files for a few minutes, so players see an edit after roughly 5 minutes.
