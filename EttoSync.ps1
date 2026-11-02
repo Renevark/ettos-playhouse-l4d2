@@ -21,6 +21,12 @@
                blocks in cfg\autoexec.cfg (console, ping on mouse5, F8 = join) and cfg\listenserver.cfg (stock values
                for local games). Keys that are already bound are left alone. Restore.cmd takes it all out again.
 
+  Your own local add-ons (v8): .vpk files directly in left4dead2\addons\ (not Etto's local pack) load above every
+  Workshop item and override the server's add-ons. Every mode lists them with the same crash checks; Parity and -Strict
+  switch them off in addonlist.txt (the files stay; Restore.cmd or the game's Add-ons menu turns them back on).
+  -KeepLocalAddons leaves them on. Risky loose files in the game folder (survivor animations, a particle list,
+  mission files) are reported, never changed.
+
   Launch option (v7, all modes): when the manifest sets heapsizeKB, the script makes sure Left 4 Dead 2's Steam launch
   options contain -heapsize <KB> (a bigger model/sound cache; without it sound cuts in and out on big maps on Etto's
   server). Steam rewrites its settings when it exits, so the script closes Steam for a moment, edits the launch options
@@ -42,10 +48,11 @@ param(
     [string]$ManifestFile,
     [string]$LocalPack,
     [switch]$NoConfig,
-    [switch]$NoLaunchOption
+    [switch]$NoLaunchOption,
+    [switch]$KeepLocalAddons
 )
 
-$ScriptVersion = 7
+$ScriptVersion = 8
 $ErrorActionPreference = 'Stop'
 
 # resolve file arguments against the current PowerShell location now: the 32-bit relaunch below and the Steam
@@ -238,7 +245,7 @@ function Update-AddonList([uint64[]]$tops, [uint64[]]$enable, [uint64[]]$drop) {
     $text = [IO.File]::ReadAllText($addonList)
     $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
     $entries = New-Object System.Collections.Generic.List[object]
-    foreach ($m in [regex]::Matches($text, '"([^"]+\.vpk)"\s*"([01])"')) { $entries.Add(@{ name = $m.Groups[1].Value; on = $m.Groups[2].Value }) }
+    foreach ($m in [regex]::Matches($text, '(?i)"([^"]+\.vpk)"\s*"([01])"')) { $entries.Add(@{ name = $m.Groups[1].Value; on = $m.Groups[2].Value }) }
     $wid = { param($n) if ($n -match '^workshop[\\/](\d+)\.vpk$') { [uint64]$Matches[1] } else { [uint64]0 } }
     $entries = [System.Collections.Generic.List[object]]@($entries | Where-Object { $drop -notcontains (& $wid $_.name) })
     foreach ($id in $enable) {
@@ -335,13 +342,42 @@ function Install-LocalPack($plan, $snapDir) {
     } finally { $z.Dispose() }
     return $done
 }
+# The player's own local add-ons (v8): every addons\*.vpk that isn't in Etto's local pack and is (or will be) switched on.
+# The game lists a new local .vpk as enabled at its next launch, so files not in addonlist.txt yet count as on.
+function Get-OwnLocalAddons([string[]]$ettoNames) {
+    if (-not (Test-Path -LiteralPath $localDir)) { return @() }
+    $state = @{}
+    if (Test-Path $addonList) {
+        foreach ($mm in [regex]::Matches([IO.File]::ReadAllText($addonList), '(?i)"([^"\\/]+\.vpk)"\s*"([01])"')) { $state[$mm.Groups[1].Value.ToLower()] = $mm.Groups[2].Value }
+    }
+    @(Get-ChildItem -LiteralPath $localDir -Filter '*.vpk' -File -ErrorAction SilentlyContinue | Where-Object {
+        $n = $_.Name.ToLower()
+        $ettoNames -notcontains $n -and $n -notmatch '_[0-9]{3}\.vpk\z' -and (-not $state.ContainsKey($n) -or $state[$n] -eq '1')
+    } | ForEach-Object { [pscustomobject]@{ name = $_.Name; path = $_.FullName } })
+}
+# Switch local add-ons off in addonlist.txt (the files stay where they are; the game's Add-ons menu or Restore turns them on).
+function Disable-LocalAddons([string[]]$names) {
+    if (-not $names -or -not (Test-Path $addonList)) { return }
+    $text = [IO.File]::ReadAllText($addonList)
+    $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $entries = New-Object System.Collections.Generic.List[object]
+    foreach ($mm in [regex]::Matches($text, '(?i)"([^"]+\.vpk)"\s*"([01])"')) { $entries.Add(@{ name = $mm.Groups[1].Value; on = $mm.Groups[2].Value }) }
+    foreach ($n in $names) {
+        $e = $entries | Where-Object { $_.name -ieq $n } | Select-Object -First 1
+        if ($e) { $e.on = '0' } else { $entries.Add(@{ name = $n; on = '0' }) }
+    }
+    $out = '"AddonList"' + $nl + '{' + $nl
+    foreach ($e in $entries) { $out += "`t`"$($e.name)`"`t`t`"$($e.on)`"" + $nl }
+    $out += '}' + $nl
+    [IO.File]::WriteAllText($addonList, $out, (New-Object Text.UTF8Encoding($false)))
+}
 # Make sure each local add-on has an enabled entry in addonlist.txt (new ones go on top, like L4D2 does).
 function Enable-LocalAddons([string[]]$names) {
     if (-not $names -or -not (Test-Path $addonList)) { return }
     $text = [IO.File]::ReadAllText($addonList)
     $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
     $entries = New-Object System.Collections.Generic.List[object]
-    foreach ($mm in [regex]::Matches($text, '"([^"]+\.vpk)"\s*"([01])"')) { $entries.Add(@{ name = $mm.Groups[1].Value; on = $mm.Groups[2].Value }) }
+    foreach ($mm in [regex]::Matches($text, '(?i)"([^"]+\.vpk)"\s*"([01])"')) { $entries.Add(@{ name = $mm.Groups[1].Value; on = $mm.Groups[2].Value }) }
     for ($k = $names.Count - 1; $k -ge 0; $k--) {
         $e = $entries | Where-Object { $_.name -ieq $names[$k] } | Select-Object -First 1
         if ($e) { $e.on = '1' } else { $entries.Insert(0, @{ name = $names[$k]; on = '1' }) }
@@ -730,7 +766,7 @@ try {
             if ($c.Count -ge 2 -and $c[0] -match 'localconfig\.vdf\z' -and $c[1] -match '^-heapsize [0-9]+\z' -and (Test-Path -LiteralPath $c[0]) -and
                 "$(Get-LaunchOptionsText $c[0])" -match ('(^|\s)' + [regex]::Escape($c[1]) + '(\s|$)')) { $heapRec = [pscustomobject]@{ path = $c[0]; token = $c[1] } }
         }
-        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})$(if ($cfgMark) {", remove Etto's game settings"})$(if ($heapRec) {", remove the launch option $($heapRec.token) (Steam closes for a moment)"})" 'Cyan'
+        Say "Restoring snapshot $(Split-Path $dir -Leaf): resubscribe $($add.Count), unsubscribe $($remove.Count), restore addonlist.txt$(if ($lpRecs) {", undo $($lpRecs.Count) local add-on(s)"})$(if ($cfgMark) {", remove Etto's game settings"})$(if ($heapRec) {", remove the launch option $($heapRec.token) (Steam closes for a moment)"})$(if (Test-Path (Join-Path $dir 'local_switched_off.txt')) {" (this also switches your own local add-ons back on)"})" 'Cyan'
         if ($DryRun) { Say 'Dry run - nothing changed.'; return }
         if (-not $Yes -and (Read-Host 'Proceed? (y/n)') -notmatch '^y') { return }
         Apply-Changes $add $remove
@@ -826,6 +862,42 @@ try {
         foreach ($w in $warn) { Say "  ! https://steamcommunity.com/sharedfiles/filedetails/?id=$($w.id)" 'Magenta'; foreach ($y in $w.why) { Say "      $y" } }
     }
 
+    # ---- the player's own local add-ons and loose files (v8) ----
+    # Local add-ons (addons\*.vpk) load ABOVE every Workshop item, so they override the server's add-ons and Etto's
+    # Tweaks. Parity (and -Strict) switches them off in addonlist.txt; Standard only warns. -KeepLocalAddons keeps them.
+    $ettoNames = @(@($m.localPack.files) | Where-Object { $_ } | ForEach-Object { "$($_.name)".ToLower() })
+    $ownLocal = @(Get-OwnLocalAddons $ettoNames)
+    $localOff = @()
+    if ($ownLocal.Count) {
+        $offNow = ($Parity -or $Strict) -and -not $KeepLocalAddons
+        Say "`nYour own local add-ons ($($ownLocal.Count), in left4dead2\addons\, not from the Workshop): they load above every Workshop item and override the server's add-ons." 'Magenta'
+        foreach ($l in $ownLocal) {
+            $why = @()
+            try {
+                $files = [EttoSteam]::VpkFiles($l.path)
+                if ($files | Where-Object { $_ -match '^models/survivors/anim_' -or $_ -match '/xdreanims/' }) { $why += 'replaces survivor ANIMATIONS (this exact kind of mod crashed players on this server)' }
+                $mo = @($files | Where-Object { $_ -match '^missions/(.+\.txt)$' -and $reqMissions.ContainsKey($Matches[1].ToLower()) })
+                if ($mo) { $why += "overrides a server campaign's mission file ($($mo -join ', '))" }
+                if ($files -contains 'particles/particles_manifest.txt') { $why += 'replaces the particle list (Workshop particle effects can go missing)' }
+            } catch { $why += "couldn't be read ($($_.Exception.Message))" }
+            Say "  ! $($l.name)$(if ($why) {"  - $($why -join '; ')"})" 'Magenta'
+        }
+        if ($offNow) {
+            $localOff = @($ownLocal | ForEach-Object { $_.name })
+            Say "  Will SWITCH THEM OFF for Etto's setup (the files stay in addons\; turn one back on in the game's Add-ons menu, or Restore.cmd). Keep them with -KeepLocalAddons." 'Yellow'
+        } elseif ($Parity -or $Strict) { Say '  -KeepLocalAddons given: left on.' 'DarkCyan' }
+        else { Say '  Not changed. Parity.cmd switches them off; if you crash or things look wrong on the server, try without them.' 'DarkCyan' }
+    }
+    $loose = @()
+    $lg = Join-Path $game 'left4dead2'
+    if (@(Get-ChildItem (Join-Path $lg 'models\survivors') -Filter 'anim_*.mdl' -File -ErrorAction SilentlyContinue).Count) { $loose += 'left4dead2\models\survivors\anim_*.mdl (loose survivor ANIMATIONS - the crash kind)' }
+    if (Test-Path -LiteralPath (Join-Path $lg 'particles\particles_manifest.txt')) { $loose += 'left4dead2\particles\particles_manifest.txt (loose particle list - Workshop particle effects can go missing)' }
+    if (@(Get-ChildItem (Join-Path $lg 'missions') -Filter '*.txt' -File -ErrorAction SilentlyContinue).Count) { $loose += 'left4dead2\missions\*.txt (loose mission files - can break campaign names and map lists)' }
+    if ($loose) {
+        Say "`nLoose files in your game folder override every add-on (not changed - move them out if you have problems):" 'Magenta'
+        foreach ($x in $loose) { Say "  ! $x" 'Magenta' }
+    }
+
     # ---- Etto's local add-ons (Parity only) ----
     $lp = if ($Parity) { Get-LocalPackPlan $m } else { $null }
     if ($LocalPack -and -not $Parity) { Say "`n-LocalPack only applies to Parity.cmd (-Parity); ignored." 'Yellow' }
@@ -881,7 +953,7 @@ try {
     }
 
     if ($DryRun) { Say "`nDry run - nothing changed."; return }
-    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork -and -not $cfgWork -and -not $heapWork) { Say "`nNothing to do."; return }
+    if (-not $add -and -not $remove -and $cycle.Count -eq 0 -and -not $lpWork -and -not $cfgWork -and -not $heapWork -and -not $localOff.Count) { Say "`nNothing to do."; return }
     if (-not $Yes) { if ((Read-Host "`nApply these changes? (y/n)") -notmatch '^y') { return } }
 
     # ---- snapshot, then apply ----
@@ -909,6 +981,11 @@ try {
         }
     }
     if ($lp) { Enable-LocalAddons @(@($lp.current) + @($lp.install) | ForEach-Object { $_.name } | Where-Object { Test-Path -LiteralPath (Join-Path $localDir $_) }) }
+    if ($localOff.Count) {
+        $localOff | Set-Content (Join-Path $snapDir 'local_switched_off.txt') -Encoding UTF8
+        Disable-LocalAddons $localOff
+        Say "`nSwitched off your own local add-ons: $($localOff -join ', ')" 'Green'
+    }
     Say "`naddonlist.txt updated: required items enabled." 'Green'
     # before the "Done" lines: a player who starts the game while Steam is still closing would lose the edit
     if ($heapWork) {

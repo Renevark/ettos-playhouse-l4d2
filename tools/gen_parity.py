@@ -31,7 +31,7 @@ for i in parity_ids:
 m['parity'] = parity
 tops = list(m.get('loadFirstAll') or ([m['loadFirst']] if m.get('loadFirst') else []))
 m['loadOrder'] = tops + [i for i in enabled if i not in tops]   # the sync script always puts these on top
-m['latestScript'] = 7
+m['latestScript'] = 8
 # localPack (script v4+): Etto's non-Workshop add-ons, handed to friends personally as EttosPlayhouse_LocalPack.zip.
 # Only names, sizes and SHA-256s go in the public manifest. Refreshed from Etto's addons folder on every run.
 LOCAL = os.path.join(os.path.dirname(ADDONLIST), 'addons')

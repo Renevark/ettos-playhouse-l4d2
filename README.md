@@ -30,6 +30,11 @@ unless it tells you one is available.
   in and out. This raises the cache to 320 MB. Steam rewrites its settings when it exits, so the script closes Steam, edits
   only the `LaunchOptions` of Left 4 Dead 2 (app 550) in `Steam\userdata\<your id>\config\localconfig.vdf`, and starts Steam
   again. Skip it with `-NoLaunchOption`. If it can't (Steam won't close, say), it tells you how to add it yourself.
+- **Your own local add-ons** (script v8): `.vpk` files directly in `left4dead2\addons\` that aren't Etto's load *above*
+  every Workshop item, so they override the server's add-ons. Every run lists them with the same crash checks as below;
+  Standard only warns, while `Parity.cmd` and `-Strict` switch them off (every such run does it again, unless you add
+  `-KeepLocalAddons`). Risky loose files in the game folder (`models\survivors\anim_*.mdl`,
+  `particles\particles_manifest.txt`, `missions\*.txt`) are reported too, never changed.
 - **Doesn't touch any other add-on you're subscribed to.** It only *warns* (doesn't remove) if one of your other add-ons:
   - replaces survivor animations (the kind of mod that crashed players here), or
   - overrides one of the server's campaign mission files, or
@@ -40,8 +45,8 @@ unless it tells you one is available.
 | Run | Does |
 |---|---|
 | `Sync.cmd -DryRun` | Shows what it would do and changes nothing |
-| `Sync.cmd -Strict` | Makes your subscriptions match this list **exactly** (required + recommended). Use it if you keep crashing. |
-| **`Parity.cmd`** | **Optional:** also installs Etto's own client setup (weapons, sounds, textures, survivor models; about 2 GB) **in the exact same load order**, so your game looks and sounds the same as Etto's. Doesn't remove anything of yours. With Etto's local pack next to it, it also installs Etto's non-Workshop tweaks (see below); a same-named file already in `addons\` is replaced (the old copy goes into the snapshot). |
+| `Sync.cmd -Strict` | Makes your subscriptions match this list **exactly** (required + recommended), and switches your own local add-ons off (`-KeepLocalAddons` keeps them). Use it if you keep crashing. |
+| **`Parity.cmd`** | **Optional:** also installs Etto's own client setup (weapons, sounds, textures, survivor models; about 2 GB) **in the exact same load order**, so your game looks and sounds the same as Etto's. Doesn't remove anything of yours, but switches your own local add-ons (in `addons\`) off in `addonlist.txt`, since they'd override Etto's setup; the files stay, and the game's Add-ons menu or `Restore.cmd` turns them back on (`-KeepLocalAddons` leaves them on). With Etto's local pack next to it, it also installs Etto's non-Workshop tweaks (see below); a same-named file already in `addons\` is replaced (the old copy goes into the snapshot). |
 | `Parity.cmd -Strict` | An exact mirror of Etto's setup: everything not in it is unsubscribed (snapshot first; `Restore.cmd` undoes it). |
 | `Restore.cmd` | Undoes the most recent sync: resubscribes what it removed, restores your `addonlist.txt`, takes back any local-pack files it installed and the game settings it wrote, and removes the `-heapsize` launch option if that run added it (closing Steam for a moment). It only undoes the latest snapshot: to undo an older run use `Restore.cmd -Backup <folder>`. After a Restore, run `Sync.cmd -NoLaunchOption` if you don't want the launch option back. |
 
