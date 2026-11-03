@@ -57,7 +57,7 @@ glows, lighter gun/skin textures, the ekgHUD patch, and `etto_lite_ci.vpk`: smal
 campaign, survivor and Valve model textures). Left 4 Dead 2 is a 32-bit game that can only use 4 GB of memory, and with
 the custom infected the full-size textures don't fit on big maps, which then crash while loading; these capped textures
 are what keep it under the limit. They are made for Etto's exact add-on set, which is why they come with Parity.
-The pack zip is about 580 MB. Etto hands them out personally as `EttosPlayhouse_LocalPack.zip`; this repo
+The pack zip is about 315 MB. Etto hands them out personally as `EttosPlayhouse_LocalPack.zip`; this repo
 only lists their names, sizes and SHA-256s in `manifest.json` (`localPack`). Put the zip next to `Parity.cmd` (or pass
 `-LocalPack <path>`): Parity checks each file against its SHA-256, copies it into `left4dead2\addons\` and switches it on.
 Anything in the zip that isn't on the list is ignored. If a file is outdated, Parity says so; ask Etto for a fresh pack.
