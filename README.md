@@ -62,6 +62,14 @@ only lists their names, sizes and SHA-256s in `manifest.json` (`localPack`). Put
 `-LocalPack <path>`): Parity checks each file against its SHA-256, copies it into `left4dead2\addons\` and switches it on.
 Anything in the zip that isn't on the list is ignored. If a file is outdated, Parity says so; ask Etto for a fresh pack.
 
+`etto_lite_ci.vpk` also repairs two textures (v1.9.1): the Corpse Eater's skirt gets the transparency its material
+needs (it drew as dark rectangles), and the wound texture of **Improved gore textures and models** gets the mip
+levels stock uses (the mod's own copy crashed the game when joining a game in progress). That's why the gore mod needs
+the pack (script v9): Parity only subscribes it when `etto_lite_ci.vpk` is installed from the zip in the same run, or is
+installed, carries that texture and isn't switched off. Otherwise Parity skips it, and Parity with `-Strict` unsubscribes
+it. Sync.cmd and Parity.cmd warn if you're subscribed to it without the pack. Older scripts (v8 and earlier) never
+subscribe it.
+
 ### Game settings for Etto's server (Parity, Etto's hand-off folder only)
 
 When Etto's hand-off folder also holds `EttosPlayhouse_Server.txt` (the server address; it isn't in this repo), `Parity.cmd`
@@ -143,6 +151,9 @@ Edit `manifest.json`:
 - `parity` (`{ "id", "label", "mb" }`) and `loadOrder` (top → bottom IDs): Etto's optional client setup, used by `Parity.cmd`.
   Regenerate both from Etto's PC with `python -I tools/gen_parity.py` after changing the add-ons, after a game launch
   so `addonlist.txt` reflects the real order.
+- `parityLocal` (script v9+; older scripts ignore the key): parity items that are only safe with one of the local-pack
+  files, `{ "id", "label", "mb", "needsLocal": "<localPack file name>", "needsPath": "<path that file overrides>" }`.
+  `gen_parity.py` moves the IDs in its `NEEDS_LOCAL` table here and checks that the local file contains `needsPath`.
 - `localPack` (script v4+): `{ "zip": "<name>.zip", "files": [{ "name", "label", "bytes", "sha256" }] }` for Etto's
   non-Workshop add-ons. `gen_parity.py` refreshes `bytes`/`sha256` from Etto's `addons` folder. Push the manifest
   **before** handing out a new pack zip: friends' `Parity.cmd` checks the zip against the published list.

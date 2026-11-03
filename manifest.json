@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-11-01",
-  "latestScript": 8,
+  "updated": "2026-11-02",
+  "latestScript": 9,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
   "loadFirstAll": [
@@ -704,6 +704,7 @@
   "loadOrder": [
     "3818862657",
     "3823176475",
+    "3828922073",
     "3642724712",
     "3691946879",
     "3569502432",
@@ -845,7 +846,7 @@
   ],
   "localPack": {
     "zip": "EttosPlayhouse_LocalPack.zip",
-    "updated": "2026-11-01",
+    "updated": "2026-11-02",
     "files": [
       {
         "name": "etto_glowdim.vpk",
@@ -867,10 +868,19 @@
       },
       {
         "name": "etto_lite_ci.vpk",
-        "label": "Smaller textures for the custom infected, campaigns, survivors and Valve's models (keeps the game under its 4 GB limit)",
-        "bytes": 435867824,
-        "sha256": "687a47ac86a5b2c4aee5cacf0fbe2798db7ebd5f4ae9f79bd66f916cdb2dd011"
+        "label": "Smaller textures for the custom infected, campaigns, survivors and Valve's models (keeps the game under its 4 GB limit), plus the Corpse Eater skirt and gore-mod wound texture fixes",
+        "bytes": 425071726,
+        "sha256": "14ee4a21e7c78cd03f64f388d18149335fb1cb6b9ce8ae611e11cc987d6858fc"
       }
     ]
-  }
+  },
+  "parityLocal": [
+    {
+      "id": "3828922073",
+      "label": "Improved gore textures and models",
+      "mb": 19.7,
+      "needsLocal": "etto_lite_ci.vpk",
+      "needsPath": "materials/models/infected/common/body_wounds/wound_combined_cull_texture.vtf"
+    }
+  ]
 }
