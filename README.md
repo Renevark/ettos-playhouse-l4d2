@@ -22,9 +22,12 @@ unless it tells you one is available.
 
 - **Subscribes** to every add-on the server requires that you're missing.
 - **Unsubscribes** only add-ons this list names: retired items (replaced by something newer) and known crash-causers. It shows each one with the reason.
-- Puts the **Survivor Set Patch** first in your add-on load order (by re-subscribing it, see below) and switches on the required add-ons.
-- The required add-ons include 27 **custom infected** (about 840 MB to download the first time). Their scripts also spawn
-  them in your own local and hosted games, and a few of them restyle how all common infected look.
+- Puts **Etto's Playhouse Custom Campaign Fixes** and **Tweaks** first in your add-on load order (by re-subscribing them, see below) and switches on the required add-ons.
+- The required add-ons are about 17 GB in total if you're starting from nothing. They include 27 **custom infected** (about 840 MB). Their
+  scripts also spawn them in your own local and hosted games, and a few of them restyle how all common infected look.
+- They also include **Journey to Splash Mountain**, one part of which applies on every map: overhead lights glow brighter, a
+  common infected's shirt, a sofa and some reflections look different, and if you run Realistic Skyboxes the Dead Center sky can
+  look wrong. Etto's local pack (Parity) puts all of those back.
 - Adds **`-heapsize 327680`** to Left 4 Dead 2's Steam launch options (script v7). The game keeps model meshes and sounds in
   one cache, 256 MB by default; on Etto's server every model is loaded up front, so on big maps sounds get pushed out and cut
   in and out. This raises the cache to 320 MB. Steam rewrites its settings when it exits, so the script closes Steam, edits
@@ -62,13 +65,21 @@ only lists their names, sizes and SHA-256s in `manifest.json` (`localPack`). Put
 `-LocalPack <path>`): Parity checks each file against its SHA-256, copies it into `left4dead2\addons\` and switches it on.
 Anything in the zip that isn't on the list is ignored. If a file is outdated, Parity says so; ask Etto for a fresh pack.
 
-`etto_lite_ci.vpk` also repairs two textures (v1.9.1): the Corpse Eater's skirt gets the transparency its material
-needs (it drew as dark rectangles), and the wound texture of **Improved gore textures and models** gets the mip
-levels stock uses (the mod's own copy crashed the game when joining a game in progress). That's why the gore mod needs
-the pack (script v9): Parity only subscribes it when `etto_lite_ci.vpk` is installed from the zip in the same run, or is
-installed, carries that texture and isn't switched off. Otherwise Parity skips it, and Parity with `-Strict` unsubscribes
-it. Sync.cmd and Parity.cmd warn if you're subscribed to it without the pack. Older scripts (v8 and earlier) never
-subscribe it.
+`etto_lite_ci.vpk` also repairs two textures: the Corpse Eater's skirt gets the transparency its material needs (it drew as
+dark rectangles), and the wound texture of **Improved gore textures and models** gets the mip levels stock uses. It also
+pins a few files that Journey to Splash Mountain would otherwise change on every map (the Dead Center sky, overhead light
+glow and others). `etto_lite.vpk` holds a copy of the M14 hunting rifle with its idle camera sway removed.
+
+The gore mod is tied to the pack (script v9+): Parity only subscribes it when `etto_lite_ci.vpk` is installed from the zip in
+the same run, or is installed, carries that texture and isn't switched off. Otherwise Parity skips it, and Parity with
+`-Strict` unsubscribes it. Older scripts (v8 and earlier) never subscribe it. Script v9 said the mod's own texture crashed
+the game when joining; that was wrong. A dump with the same crash predates the mod.
+
+### Known issue: crash at the end of loading
+
+Joining a game in progress from the menu can crash right before you're placed in the map, so far mostly seen on Yama chapter 4.
+The crash is in the game's own material code (a queued texture update at the end of loading). The root cause isn't proven and
+it isn't fixed. If it happens, launch again and rejoin; it may take more than one try.
 
 ### Game settings for Etto's server (Parity, Etto's hand-off folder only)
 
@@ -151,7 +162,7 @@ Edit `manifest.json`:
 - `parity` (`{ "id", "label", "mb" }`) and `loadOrder` (top → bottom IDs): Etto's optional client setup, used by `Parity.cmd`.
   Regenerate both from Etto's PC with `python -I tools/gen_parity.py` after changing the add-ons, after a game launch
   so `addonlist.txt` reflects the real order.
-- `parityLocal` (script v9+; older scripts ignore the key): parity items that are only safe with one of the local-pack
+- `parityLocal` (script v9+; older scripts ignore the key): parity items that are meant to run with one of the local-pack
   files, `{ "id", "label", "mb", "needsLocal": "<localPack file name>", "needsPath": "<path that file overrides>" }`.
   `gen_parity.py` moves the IDs in its `NEEDS_LOCAL` table here and checks that the local file contains `needsPath`.
 - `localPack` (script v4+): `{ "zip": "<name>.zip", "files": [{ "name", "label", "bytes", "sha256" }] }` for Etto's

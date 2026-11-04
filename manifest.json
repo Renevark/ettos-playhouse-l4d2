@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "name": "Etto's Playhouse",
-  "updated": "2026-11-02",
-  "latestScript": 9,
+  "updated": "2026-11-04",
+  "latestScript": 10,
   "scriptUrl": "https://github.com/Renevark/ettos-playhouse-l4d2",
   "loadFirst": "3818862657",
   "loadFirstAll": [
@@ -314,6 +314,50 @@
     {
       "id": "3701168807",
       "label": "Custom Infected: Soldier (server spawns it)"
+    },
+    {
+      "id": "176102683",
+      "label": "Journey to Splash Mountain 1/5 (mission file, maps 1-3)"
+    },
+    {
+      "id": "176103869",
+      "label": "Journey to Splash Mountain 2/5 (maps 4-6)"
+    },
+    {
+      "id": "176104794",
+      "label": "Journey to Splash Mountain 3/5"
+    },
+    {
+      "id": "176106238",
+      "label": "Journey to Splash Mountain 4/5"
+    },
+    {
+      "id": "176107416",
+      "label": "Journey to Splash Mountain 5/5"
+    },
+    {
+      "id": "281472281",
+      "label": "One 4 Nine 1/4 (mission file, maps 1-3)"
+    },
+    {
+      "id": "281476434",
+      "label": "One 4 Nine 2/4 (maps 4-5)"
+    },
+    {
+      "id": "281486847",
+      "label": "One 4 Nine 3/4"
+    },
+    {
+      "id": "281493198",
+      "label": "One 4 Nine 4/4"
+    },
+    {
+      "id": "629476830",
+      "label": "Heaven Can Wait 2"
+    },
+    {
+      "id": "2807913763",
+      "label": "SECTOR-74: March of the survivors"
     }
   ],
   "recommended": [
@@ -377,9 +421,16 @@
     "Parity.cmd (sync script v4+) also installs Etto's local add-ons (HD Lighting dimming, lighter gun textures, texture caps that keep big maps under the 4 GB memory limit, ekgHUD patch) from EttosPlayhouse_LocalPack.zip, which Etto hands out personally. Put it next to Parity.cmd.",
     "ekgHUD users: the ekgHUD compatibility patch (so the server's survivor table shows up) comes in Etto's local pack; ask Etto for it.",
     "Big campaigns (e.g. Vltava, 813 MB): subscribe or sync with Left 4 Dead 2 CLOSED. The game downloads a Workshop item into one memory buffer the size of the whole file, so subscribing to a big one mid-game can crash it with OUT OF MEMORY.",
-    "Big custom maps need a lot of memory. Parity.cmd with Etto's local pack installs texture caps that keep the 32-bit game under its 4 GB limit; without them, heavy maps can crash while loading."
+    "Big custom maps need a lot of memory. Parity.cmd with Etto's local pack installs texture caps that keep the 32-bit game under its 4 GB limit; without them, heavy maps can crash while loading.",
+    "Known issue: joining a game in progress from the menu can crash right before you're placed in the map (so far mostly Yama chapter 4). The cause isn't known yet. If it happens, launch again and rejoin; it may take more than one try.",
+    "New: Journey to Splash Mountain, One 4 Nine, Heaven Can Wait 2 and SECTOR-74 (11 items, about 2.2 GB). After syncing, launch the game and stay at the main menu until the downloads finish."
   ],
   "parity": [
+    {
+      "id": "3528856766",
+      "label": "M82A1(military sniper)",
+      "mb": 39.1
+    },
     {
       "id": "2913269280",
       "label": "HD Lighting Effects",
@@ -519,11 +570,6 @@
       "id": "146726644",
       "label": "Magnum - s&w 29 revolver (chrome)",
       "mb": 34.4
-    },
-    {
-      "id": "135233886",
-      "label": "M16 sniper edition",
-      "mb": 60.0
     },
     {
       "id": "129118764",
@@ -704,6 +750,18 @@
   "loadOrder": [
     "3818862657",
     "3823176475",
+    "3528856766",
+    "176103869",
+    "281476434",
+    "281486847",
+    "281472281",
+    "176104794",
+    "2807913763",
+    "629476830",
+    "281493198",
+    "176107416",
+    "176106238",
+    "176102683",
     "3828922073",
     "3642724712",
     "3691946879",
@@ -777,7 +835,6 @@
     "645502899",
     "1229705812",
     "146726644",
-    "135233886",
     "129118764",
     "1229742534",
     "131131462",
@@ -846,7 +903,7 @@
   ],
   "localPack": {
     "zip": "EttosPlayhouse_LocalPack.zip",
-    "updated": "2026-11-02",
+    "updated": "2026-11-04",
     "files": [
       {
         "name": "etto_glowdim.vpk",
@@ -856,9 +913,9 @@
       },
       {
         "name": "etto_lite.vpk",
-        "label": "Lighter textures for 23 gun/skin packs, capped at 1024 (saves ~500 MB of game memory)",
-        "bytes": 110861724,
-        "sha256": "9b9ca0e6a595c7ea0cb0a7a062f8d36de0d47799b1eddebaeb71b585d396142b"
+        "label": "Lighter textures for 23 gun/skin packs, capped at 1024 (saves ~500 MB of game memory), and the M14 with its idle camera sway removed",
+        "bytes": 107021138,
+        "sha256": "1a6d75320b8e05c35e38097ee30e5c98d29a00342ab489dc33401fda86ae2a2e"
       },
       {
         "name": "ekghud_scripthud.vpk",
@@ -868,9 +925,9 @@
       },
       {
         "name": "etto_lite_ci.vpk",
-        "label": "Smaller textures for the custom infected, campaigns, survivors and Valve's models (keeps the game under its 4 GB limit), plus the Corpse Eater skirt and gore-mod wound texture fixes",
-        "bytes": 425071726,
-        "sha256": "14ee4a21e7c78cd03f64f388d18149335fb1cb6b9ce8ae611e11cc987d6858fc"
+        "label": "Smaller textures for the custom infected, campaigns, survivors and Valve's models (keeps the game under its 4 GB limit), plus the Corpse Eater skirt and gore-mod wound texture fixes, and pins files Splash Mountain would change on every map",
+        "bytes": 428745511,
+        "sha256": "34710026014e2b047df7653ef9ea061caa9cffec4d6265e88f26ca9971382bbc"
       }
     ]
   },

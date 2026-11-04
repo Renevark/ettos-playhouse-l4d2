@@ -23,11 +23,12 @@ parity_ids = [i for i in enabled if i not in skip]
 data = urllib.parse.urlencode([('itemcount', len(parity_ids))] + [('publishedfileids[%d]' % n, i) for n, i in enumerate(parity_ids)]).encode()
 resp = json.load(urllib.request.urlopen('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', data))
 info = {x['publishedfileid']: x for x in resp['response']['publishedfiledetails']}
-# Parity items that are only safe together with one of Etto's local-pack files, which overrides the item's bad file.
+# Parity items that are meant to run with one of Etto's local-pack files, which overrides some of the item's files.
 # They go in "parityLocal", which only script v9+ reads (v9 skips them without that file; older scripts never see them).
 NEEDS_LOCAL = {
-    # Improved gore textures and models: its own single-level wound_combined_cull_texture crashes fresh joins
-    # (materialsystem use-after-free, bisected 2026-11-02); etto_lite_ci.vpk v1.9.1+ carries a fixed copy
+    # Improved gore textures and models: etto_lite_ci.vpk v1.9.1+ rebuilds its single-level wound_combined_cull_texture
+    # with a full mip chain and caps its big textures. The 2026-11-02 claim that the mod's copy crashes fresh joins was
+    # wrong: the same crash stack exists in a dump from before the mod was subscribed.
     '3828922073': ('etto_lite_ci.vpk', 'materials/models/infected/common/body_wounds/wound_combined_cull_texture.vtf'),
 }
 parity, parity_local = [], []
@@ -44,7 +45,7 @@ m['parity'] = parity
 m['parityLocal'] = parity_local
 tops = list(m.get('loadFirstAll') or ([m['loadFirst']] if m.get('loadFirst') else []))
 m['loadOrder'] = tops + [i for i in enabled if i not in tops]   # the sync script always puts these on top
-m['latestScript'] = 9
+m['latestScript'] = 10
 # localPack (script v4+): Etto's non-Workshop add-ons, handed to friends personally as EttosPlayhouse_LocalPack.zip.
 # Only names, sizes and SHA-256s go in the public manifest. Refreshed from Etto's addons folder on every run.
 LOCAL = os.path.join(os.path.dirname(ADDONLIST), 'addons')

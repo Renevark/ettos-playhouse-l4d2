@@ -28,11 +28,12 @@
   mission files) are reported, never changed.
 
   Add-ons that need Etto's local pack (v9): the manifest's "parityLocal" list (read only by v9+, so older scripts never
-  subscribe these) holds parity items that are only safe together with a local-pack file ("needsLocal") that overrides
+  subscribe these) holds parity items that are meant to run with a local-pack file ("needsLocal") that overrides
   one of their files ("needsPath"). Parity subscribes such an item only when that file is installed from the pack zip in
   the same run, or is installed, contains needsPath and isn't switched off; otherwise it is skipped (Parity + -Strict
-  unsubscribes it). Standard and Parity warn when you are subscribed to one without its file. (Improved gore textures
-  and models ships a wound texture that crashes fresh joins; Etto's pack carries a fixed copy.)
+  unsubscribes it). Standard and Parity warn when you are subscribed to one without its file. (Etto's pack carries a
+  rebuilt wound texture and smaller textures for Improved gore textures and models. v9 said the mod's own copy crashed
+  fresh joins; that was wrong, a dump with the same crash predates the mod.)
 
   Launch option (v7, all modes): when the manifest sets heapsizeKB, the script makes sure Left 4 Dead 2's Steam launch
   options contain -heapsize <KB> (a bigger model/sound cache; without it sound cuts in and out on big maps on Etto's
@@ -59,7 +60,7 @@ param(
     [switch]$KeepLocalAddons
 )
 
-$ScriptVersion = 9
+$ScriptVersion = 10
 $ErrorActionPreference = 'Stop'
 
 # resolve file arguments against the current PowerShell location now: the 32-bit relaunch below and the Steam
@@ -294,7 +295,7 @@ function LocalEntryOn($name) {              # is there an enabled addonlist.txt 
 }
 # (v9) Is the local-pack file a parityLocal item depends on in place? Yes when this run installs it from the zip or
 # finds it current (Parity switches those on), or when it is installed, contains needsPath and isn't switched off.
-# Any version with the path is enough: the item is only unsafe while its own copy of that file wins.
+# Any version with the path is enough: the item only misses the fix while its own copy of that file wins.
 function LocalFixReady($it, $lp) {
     $nl = "$($it.needsLocal)".ToLower()
     if ($lp -and @(@($lp.install) + @($lp.current) | Where-Object { $_ -and "$($_.name)".ToLower() -eq $nl }).Count) { return $true }
@@ -874,7 +875,7 @@ try {
     }
     $needWarn = @($needWarn | Where-Object { $remove -notcontains [uint64]"$($_.id)" })
     if ($needWarn) {
-        Say "`nWARNING - subscribed without the Etto local add-on it needs (joining a game in progress can crash):" 'Magenta'
+        Say "`nNote - subscribed without the Etto local add-on it is meant to run with (it just misses the texture fixes):" 'Magenta'
         foreach ($it in $needWarn) { Say "  ! https://steamcommunity.com/sharedfiles/filedetails/?id=$($it.id)  $($it.label)  (needs $($it.needsLocal))" 'Magenta' }
         Say "  Put Etto's pack zip next to Parity.cmd and run Parity.cmd, or unsubscribe it." 'Magenta'
     }
@@ -1030,13 +1031,13 @@ try {
         }
     }
     if ($lp) { Enable-LocalAddons @(@($lp.current) + @($lp.install) | ForEach-Object { $_.name } | Where-Object { Test-Path -LiteralPath (Join-Path $localDir $_) }) }
-    # (v9) a parityLocal item added in this run, or whose file this run tried to install, that still isn't safe
+    # (v9) a parityLocal item added in this run, or whose file this run tried to install, that still lacks its file
     # (e.g. the install failed); items warned about in the plan above aren't repeated
     $lpTried = @(if ($lp) { @($lp.install) | Where-Object { $_ } | ForEach-Object { "$($_.name)".ToLower() } })
     foreach ($it in @($m.parityLocal | Where-Object { $_ })) {
         $nid = [uint64]"$($it.id)"
         if ($after -contains $nid -and ($add -contains $nid -or $lpTried -contains "$($it.needsLocal)".ToLower()) -and -not (LocalFixReady $it $null)) {
-            Say "`nWARNING: $($it.label) ($($it.id)) is subscribed, but $($it.needsLocal) isn't in place, so joining a game in progress can crash. Unsubscribe it, or run Restore.cmd." 'Magenta'
+            Say "`nNote: $($it.label) ($($it.id)) is subscribed, but $($it.needsLocal) isn't in place, so it misses Etto's texture fixes. Get a fresh pack from Etto, or run Restore.cmd." 'Magenta'
         }
     }
     if ($localOff.Count) {
